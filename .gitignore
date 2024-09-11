@@ -1,0 +1,46 @@
+build/
+assets/distro_ascii_arts.json
+assets/distro_ascii_arts.txt
+cufetch
+test.txt
+pci.ids
+output/
+cufetch_r
+thinkpad-arch_logo.txt
+tanjiro_logo.txt
+
+*.tar.*
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+.cache
