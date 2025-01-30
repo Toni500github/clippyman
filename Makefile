@@ -4,7 +4,7 @@ MANPREFIX	?= $(PREFIX)/share/man
 APPPREFIX 	?= $(PREFIX)/share/applications
 VARS  	  	?=
 
-DEBUG 		?= 0
+DEBUG 		?= 1
 GUI_MODE        ?= 0
 
 # https://stackoverflow.com/a/1079861
@@ -22,40 +22,22 @@ else
         BUILDDIR  = build/release
 endif
 
-ifeq ($(GUI_MODE), 1)
-        VARS 	 += -DGUI_MODE=1
-	LDFLAGS	 += `pkg-config --libs gtkmm-3.0`
-	CXXFLAGS += `pkg-config --cflags gtkmm-3.0`
-endif
-
 NAME		= clippyman
 TARGET		= clippyman
 OLDVERSION	= 0.0.0
 VERSION    	= 0.0.1
 BRANCH     	= $(shell git rev-parse --abbrev-ref HEAD)
-SRC 	   	= $(wildcard src/*.cpp src/query/unix/*.cpp src/query/unix/utils/*.cpp)
+SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp)
 OBJ 	   	= $(SRC:.cpp=.o)
-LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -ldl
+LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -lxcb -lxcb-xfixes
 CXXFLAGS  	?= -mtune=generic -march=native
 CXXFLAGS        += -fvisibility=hidden -Iinclude -std=c++20 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 
-all: fmt toml $(TARGET)
+all: $(TARGET)
 
-fmt:
-ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
-	mkdir -p $(BUILDDIR)/fmt
-	make -C src/fmt BUILDDIR=$(BUILDDIR)/fmt
-endif
-
-toml:
-ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
-	mkdir -p $(BUILDDIR)/toml++
-	make -C src/toml++ BUILDDIR=$(BUILDDIR)/toml++
-endif
-
-$(TARGET): fmt toml $(OBJ)
+$(TARGET): $(OBJ)
 	mkdir -p $(BUILDDIR)
-	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
+	$(CXX) $(OBJ) -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
 
 dist:
 	bsdtar -zcf $(NAME)-v$(VERSION).tar.gz LICENSE $(TARGET).1 -C $(BUILDDIR) $(TARGET)
@@ -82,4 +64,4 @@ endif
 updatever:
 	sed -i "s#$(OLDVERSION)#$(VERSION)#g" $(wildcard .github/workflows/*.yml) compile_flags.txt
 
-.PHONY: $(TARGET) updatever dist distclean fmt toml install all
+.PHONY: $(TARGET) updatever dist distclean install all
