@@ -1,9 +1,10 @@
-#include "EventData.hpp"
 #include <chrono>
 #include <cstdlib>
-#include <clipboard/x11/ClipboardListenerX11.hpp>
-#include <fmt/base.h>
 #include <thread>
+
+#include "EventData.hpp"
+#include "fmt/base.h"
+#include "clipboard/x11/ClipboardListenerX11.hpp"
 
 void CopyCallback(const CopyEvent &event) {
     fmt::println("Copy! {}", event.content);

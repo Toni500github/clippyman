@@ -1,8 +1,8 @@
-#pragma once
+#ifndef CLIPBOARD_LISTENER_HPP_
+#define CLIPBOARD_LISTENER_HPP_
 
 #include "EventData.hpp"
 #include <functional>
-#include <string>
 
 /* The base class for ClipboardListeners, Keep in mind this is not supposed to be used directly.
  * If you want a functional CClipboardListener instance, use GetAppropriateClipboardListener().
@@ -19,3 +19,5 @@ public:
      */
     virtual void PollClipboard() = 0;
 };
+
+#endif

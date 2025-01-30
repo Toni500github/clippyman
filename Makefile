@@ -5,7 +5,6 @@ APPPREFIX 	?= $(PREFIX)/share/applications
 VARS  	  	?=
 
 DEBUG 		?= 1
-GUI_MODE        ?= 0
 
 # https://stackoverflow.com/a/1079861
 # WAY easier way to build debug and release builds
@@ -33,11 +32,23 @@ LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -lxcb -lxcb-xfixes
 CXXFLAGS  	?= -mtune=generic -march=native
 CXXFLAGS        += -fvisibility=hidden -Iinclude -std=c++20 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 
-all: $(TARGET)
+all: fmt toml $(TARGET)
 
-$(TARGET): $(OBJ)
+fmt:
+ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
+	mkdir -p $(BUILDDIR)/fmt
+	make -C src/fmt BUILDDIR=$(BUILDDIR)/fmt
+endif
+
+toml:
+ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
+	mkdir -p $(BUILDDIR)/toml++
+	make -C src/toml++ BUILDDIR=$(BUILDDIR)/toml++
+endif
+
+$(TARGET): fmt toml $(OBJ)
 	mkdir -p $(BUILDDIR)
-	$(CXX) $(OBJ) -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
+	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
 
 dist:
 	bsdtar -zcf $(NAME)-v$(VERSION).tar.gz LICENSE $(TARGET).1 -C $(BUILDDIR) $(TARGET)
@@ -46,22 +57,12 @@ clean:
 	rm -rf $(BUILDDIR)/$(TARGET) $(OBJ)
 
 distclean:
-	rm -rf $(BUILDDIR) ./tests/$(BUILDDIR) $(OBJ)
+	rm -rf $(BUILDDIR) $(OBJ)
 	find . -type f -name "*.tar.gz" -exec rm -rf "{}" \;
 	find . -type f -name "*.o" -exec rm -rf "{}" \;
 	find . -type f -name "*.a" -exec rm -rf "{}" \;
 
-install: $(TARGET)
-	install $(BUILDDIR)/$(TARGET) -Dm 755 -v $(DESTDIR)$(PREFIX)/bin/$(TARGET)
-	mkdir -p $(DESTDIR)$(MANPREFIX)/man1/
-	sed -e "s/@VERSION@/$(VERSION)/g" -e "s/@BRANCH@/$(BRANCH)/g" < cufetch.1 > $(DESTDIR)$(MANPREFIX)/man1/cufetch.1
-	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/cufetch.1
-ifeq ($(GUI_MODE), 1)
-	mkdir -p $(DESTDIR)$(APPPREFIX)
-	cp -f cufetch.desktop $(DESTDIR)$(APPPREFIX)
-endif
-
 updatever:
 	sed -i "s#$(OLDVERSION)#$(VERSION)#g" $(wildcard .github/workflows/*.yml) compile_flags.txt
 
-.PHONY: $(TARGET) updatever dist distclean install all
+.PHONY: $(TARGET) updatever dist fmt toml distclean install all

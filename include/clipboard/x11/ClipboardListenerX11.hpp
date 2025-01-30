@@ -1,7 +1,10 @@
-#pragma once
-#include <clipboard/ClipboardListener.hpp>
+#ifndef CLIPBOARD_LISTENER_X11_HPP_
+#define CLIPBOARD_LISTENER_X11_HPP_
+
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+
+#include "clipboard/ClipboardListener.hpp"
 
 class CClipboardListenerX11 : public CClipboardListener {
 public:
@@ -27,3 +30,5 @@ private:
 
     xcb_atom_t m_Clipboard, m_UTF8String, m_ClipboardProperty;
 };
+
+#endif
