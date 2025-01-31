@@ -7,7 +7,7 @@
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 
 void CopyCallback(const CopyEvent &event) {
-    fmt::println("Copy! {}", event.content);
+    fmt::println("Copied: {}", event.content);
 }
 
 int main() {
@@ -16,7 +16,7 @@ int main() {
     clipboardListener.AddCopyCallback(CopyCallback);
 
     while (true) {
-        fmt::println("Poll!");
+//        fmt::println("Poll!");
         clipboardListener.PollClipboard();
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }

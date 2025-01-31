@@ -1,13 +1,14 @@
-#include "clipboard/x11/ClipboardListenerX11.hpp"
-#include "EventData.hpp"
 #include <algorithm>
-#include <clipboard/ClipboardListener.hpp>
 #include <stdexcept>
 #include <string>
 #include <xcb/xcb.h>
 #include <xcb/xfixes.h>
 #include <xcb/xproto.h>
-#include <fmt/format.h>
+
+#include "clipboard/ClipboardListener.hpp"
+#include "fmt/format.h"
+#include "clipboard/x11/ClipboardListenerX11.hpp"
+#include "EventData.hpp"
 
 xcb_atom_t getAtom(xcb_connection_t *connection, const std::string &name) {
     xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connection, 0, name.size(), name.c_str());
