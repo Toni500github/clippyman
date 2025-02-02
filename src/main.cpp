@@ -4,10 +4,11 @@
 
 #include "EventData.hpp"
 #include "fmt/base.h"
-#include "util.hpp"
 
 #if PLATFORM_XORG
 # include "clipboard/x11/ClipboardListenerX11.hpp"
+#elif PLATFORM_WAYLAND
+# include "clipboard/wayland/ClipboardListenerWayland.hpp"
 #endif
 
 void CopyCallback(const CopyEvent &event) {
@@ -18,6 +19,9 @@ int main()
 {
 #if PLATFORM_XORG
     CClipboardListenerX11 clipboardListener;
+#elif PLATFORM_WAYLAND
+    CClipboardListenerWayland clipboardListener;
+#endif
 
     clipboardListener.AddCopyCallback(CopyCallback);
 
@@ -26,10 +30,6 @@ int main()
         clipboardListener.PollClipboard();
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
-
-#elif PLATFORM_WAYLAND
-    die("Wayland currently WIP");
-#endif
 
     return EXIT_SUCCESS;
 }

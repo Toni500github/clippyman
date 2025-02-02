@@ -32,7 +32,7 @@ TARGET		= clippyman
 OLDVERSION	= 0.0.0
 VERSION    	= 0.0.1
 BRANCH     	= $(shell git rev-parse --abbrev-ref HEAD)
-SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp)
+SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp src/clipboard/wayland/*.cpp)
 OBJ 	   	= $(SRC:.cpp=.o)
 LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt
 CXXFLAGS  	?= -mtune=generic -march=native
@@ -49,7 +49,7 @@ ifeq ($(PLATFORM),wayland)
 	TARGET   := $(TARGET)-wayland
 endif
 
-all: fmt toml both $(TARGET)
+all: fmt toml both protocol $(TARGET)
 
 fmt:
 ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
@@ -63,7 +63,13 @@ ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
 	make -C src/toml++ BUILDDIR=$(BUILDDIR)/toml++
 endif
 
-$(TARGET): fmt toml $(OBJ)
+protocol:
+ifeq ($(PLATFORM),wayland)
+	wayland-scanner private-code src/clipboard/wayland/protocol/wlr-data-control-unstable-v1.xml include/clipboard/wayland/wlr-data-control-unstable-v1.h
+	wayland-scanner client-header src/clipboard/wayland/protocol/wlr-data-control-unstable-v1.xml src/clipboard/wayland/wlr-data-control-unstable-v1.c
+endif
+
+$(TARGET): fmt toml protocol $(OBJ)
 ifneq ($(PLATFORM),both)
 	mkdir -p $(BUILDDIR)
 	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
@@ -71,15 +77,15 @@ endif
 
 both:
 ifeq ($(PLATFORM),both)
-	make clean && make PLATFORM=wayland -j4
-	make clean && make PLATFORM=xorg -j4
+	make clean && rm -f $(BUILDDIR)/$(TARGET)-wayland && make PLATFORM=wayland -j4
+	make clean && rm -f $(BUILDDIR)/$(TARGET)-xorg && make PLATFORM=xorg -j4
 endif
 
 dist:
 	bsdtar -zcf $(NAME)-v$(VERSION).tar.gz LICENSE $(TARGET).1 -C $(BUILDDIR) $(TARGET)
 
 clean:
-	rm -rf $(BUILDDIR)/$(TARGET) $(BUILDDIR)/$(TARGET)-wayland $(BUILDDIR)/$(TARGET)-xorg $(OBJ)
+	rm -rf $(BUILDDIR)/$(TARGET) $(OBJ)
 
 distclean:
 	rm -rf $(BUILDDIR) $(OBJ)

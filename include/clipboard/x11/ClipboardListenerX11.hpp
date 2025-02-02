@@ -28,8 +28,6 @@ private:
 
     xcb_window_t m_Window;
 
-    int m_EventSelectionChange;
-
     std::string m_LastClipboardContent;
 
     xcb_atom_t m_Clipboard, m_UTF8String, m_ClipboardProperty;

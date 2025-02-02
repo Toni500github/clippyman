@@ -3,7 +3,6 @@
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 
 #include <xcb/xcb.h>
-#include <xcb/xfixes.h>
 #include <xcb/xproto.h>
 
 #include <string>
@@ -17,7 +16,7 @@ xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
     xcb_intern_atom_reply_t* reply  = xcb_intern_atom_reply(connection, cookie, NULL);
 
     if (!reply)
-        die("Failed to get atom with name {}", name);
+        die("Failed to get atom with name \"{}\"", name);
 
     return reply->atom;
 }
@@ -29,9 +28,9 @@ CClipboardListenerX11::CClipboardListenerX11()
     if (xcb_connection_has_error(m_XCBConnection) != 0)
         die("Failed to connect to X11 display!");
 
-    const xcb_setup_t*    setup  = xcb_get_setup(m_XCBConnection);
-    xcb_screen_iterator_t iter   = xcb_setup_roots_iterator(setup);
-    xcb_screen_t*         screen = iter.data;
+    const xcb_setup_t*          setup  = xcb_get_setup(m_XCBConnection);
+    const xcb_screen_iterator_t iter   = xcb_setup_roots_iterator(setup);
+    const xcb_screen_t*         screen = iter.data;
 
     if (!screen)
         die("Failed to get X11 root window!");
@@ -41,21 +40,15 @@ CClipboardListenerX11::CClipboardListenerX11()
                       XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, 0, NULL);
     xcb_flush(m_XCBConnection);
 
-    auto* xFixes = xcb_get_extension_data(m_XCBConnection, &xcb_xfixes_id);
-
-    m_EventSelectionChange = xFixes->first_event + XCB_XFIXES_SELECTION_NOTIFY;
-
     m_Clipboard         = getAtom(m_XCBConnection, "CLIPBOARD");
     m_UTF8String        = getAtom(m_XCBConnection, "UTF8_STRING");
     m_ClipboardProperty = getAtom(m_XCBConnection, "XCB_CLIPBOARD");
-
-    // xcb_xfixes_select_selection_input(m_XCBConnection, m_Window, getAtom(m_XCBConnection, "CLIPBOARD"),
-    // XCB_XFIXES_SELECTION_EVENT_MASK_SET_SELECTION_OWNER);
 }
 
 CClipboardListenerX11::~CClipboardListenerX11()
 {
-    xcb_disconnect(m_XCBConnection);
+    if (m_XCBConnection)
+        xcb_disconnect(m_XCBConnection);
 }
 
 /*
