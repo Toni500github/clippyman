@@ -14,16 +14,19 @@ void CopyCallback(const CopyEvent &event) {
     fmt::println("Copied: {}", event.content);
 }
 
-int main() {
+int main()
+{
 #if PLATFORM_XORG
     CClipboardListenerX11 clipboardListener;
 
     clipboardListener.AddCopyCallback(CopyCallback);
 
-    while (true) {
+    while (true)
+    {
         clipboardListener.PollClipboard();
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
+
 #elif PLATFORM_WAYLAND
     die("Wayland currently WIP");
 #endif

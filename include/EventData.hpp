@@ -3,11 +3,13 @@
 
 #include <string>
 
-struct CopyEvent {
+struct CopyEvent
+{
     std::string content;
 };
 
-struct PasteEvent {
+struct PasteEvent
+{
     std::string content;
 };
 
