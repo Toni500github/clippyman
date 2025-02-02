@@ -6,6 +6,8 @@ VARS  	  	?=
 
 DEBUG 		?= 1
 
+PLATFORM	?= both
+
 # https://stackoverflow.com/a/1079861
 # WAY easier way to build debug and release builds
 ifeq ($(DEBUG), 1)
@@ -21,6 +23,10 @@ else
         BUILDDIR  = build/release
 endif
 
+ifeq ($(filter xorg wayland both,$(PLATFORM)),)
+    $(error Invalid platform "$(PLATFORM)". Choose either: xorg, wayland, both)
+endif
+
 NAME		= clippyman
 TARGET		= clippyman
 OLDVERSION	= 0.0.0
@@ -28,11 +34,22 @@ VERSION    	= 0.0.1
 BRANCH     	= $(shell git rev-parse --abbrev-ref HEAD)
 SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp)
 OBJ 	   	= $(SRC:.cpp=.o)
-LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -lxcb -lxcb-xfixes
+LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt
 CXXFLAGS  	?= -mtune=generic -march=native
 CXXFLAGS        += -fvisibility=hidden -Iinclude -std=c++20 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 
-all: fmt toml $(TARGET)
+ifeq ($(PLATFORM),xorg)
+	LDFLAGS  += -lxcb -lxcb-xfixes
+	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_XORG=1
+	TARGET   := $(TARGET)-xorg
+endif
+ifeq ($(PLATFORM),wayland)
+	LDFLAGS  += -lwayland-client
+	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_XORG=0
+	TARGET   := $(TARGET)-wayland
+endif
+
+all: fmt toml both $(TARGET)
 
 fmt:
 ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
@@ -47,14 +64,22 @@ ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
 endif
 
 $(TARGET): fmt toml $(OBJ)
+ifneq ($(PLATFORM),both)
 	mkdir -p $(BUILDDIR)
 	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
+endif
+
+both:
+ifeq ($(PLATFORM),both)
+	make clean && make PLATFORM=wayland -j4
+	make clean && make PLATFORM=xorg -j4
+endif
 
 dist:
 	bsdtar -zcf $(NAME)-v$(VERSION).tar.gz LICENSE $(TARGET).1 -C $(BUILDDIR) $(TARGET)
 
 clean:
-	rm -rf $(BUILDDIR)/$(TARGET) $(OBJ)
+	rm -rf $(BUILDDIR)/$(TARGET) $(BUILDDIR)/$(TARGET)-wayland $(BUILDDIR)/$(TARGET)-xorg $(OBJ)
 
 distclean:
 	rm -rf $(BUILDDIR) $(OBJ)

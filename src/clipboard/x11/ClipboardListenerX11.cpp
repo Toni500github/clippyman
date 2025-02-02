@@ -1,21 +1,20 @@
-#include <algorithm>
-#include <stdexcept>
+#if PLATFORM_XORG
+
 #include <string>
 #include <xcb/xcb.h>
 #include <xcb/xfixes.h>
 #include <xcb/xproto.h>
 
-#include "clipboard/ClipboardListener.hpp"
-#include "fmt/format.h"
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 #include "EventData.hpp"
+#include "util.hpp"
 
 xcb_atom_t getAtom(xcb_connection_t *connection, const std::string &name) {
     xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connection, 0, name.size(), name.c_str());
     xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(connection, cookie, NULL);
 
     if (!reply) {
-        throw std::runtime_error(fmt::format("Failed to get atom with name {}", name));
+        die("Failed to get atom with name {}", name);
     }
 
     return reply->atom;
@@ -25,7 +24,7 @@ CClipboardListenerX11::CClipboardListenerX11() {
     m_XCBConnection = xcb_connect(nullptr, nullptr);
 
     if (xcb_connection_has_error(m_XCBConnection) != 0) {
-        throw std::runtime_error("Failed to connect to X11 display!");
+        die("Failed to connect to X11 display!");
     }
 
     const xcb_setup_t *setup = xcb_get_setup(m_XCBConnection);
@@ -33,7 +32,7 @@ CClipboardListenerX11::CClipboardListenerX11() {
     xcb_screen_t *screen = iter.data;
 
     if (!screen) {
-        throw std::runtime_error("Failed to get X11 root window!");
+        die("Failed to get X11 root window!");
     }
 
     m_Window = xcb_generate_id(m_XCBConnection);
@@ -77,7 +76,7 @@ void CClipboardListenerX11::PollClipboard() {
         xcb_get_property_reply_t *propertyReply = xcb_get_property_reply(m_XCBConnection, propertyCookie, &error);
 
         if (error) {
-            throw std::runtime_error(fmt::format("Unknown libxcb error: {}", error->error_code));
+            die("Unknown libxcb error: {}", error->error_code);
         }
 
         std::string clipboardContent = (char *)xcb_get_property_value(propertyReply);
@@ -99,3 +98,5 @@ void CClipboardListenerX11::PollClipboard() {
         free(event);
     }
 }
+
+#endif // PLATFORM_XORG

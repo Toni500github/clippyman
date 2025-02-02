@@ -1,6 +1,8 @@
 #ifndef CLIPBOARD_LISTENER_X11_HPP_
 #define CLIPBOARD_LISTENER_X11_HPP_
 
+#if PLATFORM_XORG
+
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
@@ -31,4 +33,6 @@ private:
     xcb_atom_t m_Clipboard, m_UTF8String, m_ClipboardProperty;
 };
 
-#endif
+#endif // PLATFORM_XORG
+
+#endif // !CLIPBOARD_LISTENER_X11_HPP_
