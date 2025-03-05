@@ -5,8 +5,7 @@ APPPREFIX 	?= $(PREFIX)/share/applications
 VARS  	  	?=
 
 DEBUG 		?= 1
-
-PLATFORM	?= both
+PLATFORM	?= wayland
 
 # https://stackoverflow.com/a/1079861
 # WAY easier way to build debug and release builds
@@ -36,7 +35,7 @@ SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp src/clipboard/wayland/*.
 OBJ 	   	= $(SRC:.cpp=.o)
 LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt
 CXXFLAGS  	?= -mtune=generic -march=native
-CXXFLAGS        += -fvisibility=hidden -Iinclude -std=c++20 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
+CXXFLAGS        += -Wno-unused-parameter -fvisibility=hidden -Iinclude -std=c++17 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 
 ifeq ($(PLATFORM),xorg)
 	LDFLAGS  += -lxcb -lxcb-xfixes
@@ -44,12 +43,12 @@ ifeq ($(PLATFORM),xorg)
 	TARGET   := $(TARGET)-xorg
 endif
 ifeq ($(PLATFORM),wayland)
-	LDFLAGS  += -lwayland-client
+	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client
 	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_XORG=0
 	TARGET   := $(TARGET)-wayland
 endif
 
-all: fmt toml both protocol $(TARGET)
+all: fmt toml both wayclip $(TARGET)
 
 fmt:
 ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
@@ -63,13 +62,15 @@ ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
 	make -C src/toml++ BUILDDIR=$(BUILDDIR)/toml++
 endif
 
-protocol:
+wayclip:
 ifeq ($(PLATFORM),wayland)
-	wayland-scanner private-code src/clipboard/wayland/protocol/wlr-data-control-unstable-v1.xml include/clipboard/wayland/wlr-data-control-unstable-v1.h
-	wayland-scanner client-header src/clipboard/wayland/protocol/wlr-data-control-unstable-v1.xml src/clipboard/wayland/wlr-data-control-unstable-v1.c
+ifeq ($(wildcard $(BUILDDIR)/wayclip/libwayclip.a),)
+	mkdir -p $(BUILDDIR)/wayclip
+	make -C src/clipboard/wayland/wayclip BUILDDIR=$(BUILDDIR)/wayclip DEBUG=$(DEBUG)
+endif
 endif
 
-$(TARGET): fmt toml protocol $(OBJ)
+$(TARGET): fmt toml wayclip $(OBJ)
 ifneq ($(PLATFORM),both)
 	mkdir -p $(BUILDDIR)
 	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
@@ -96,4 +97,4 @@ distclean:
 updatever:
 	sed -i "s#$(OLDVERSION)#$(VERSION)#g" $(wildcard .github/workflows/*.yml) compile_flags.txt
 
-.PHONY: $(TARGET) updatever dist fmt toml distclean install all
+.PHONY: $(TARGET) wayclip updatever dist fmt toml distclean both install all

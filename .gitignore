@@ -1,6 +1,8 @@
 build*/
-src/clipboard/wayland/wlr-data-control-unstable-v1.c
-include/clipboard/wayland/wlr-data-control-unstable-v1.h
+wlr-data-control-unstable-v1*
+!wlr-data-control-unstable-v1.xml
+waycopy
+waypaste
 
 *.tar.*
 

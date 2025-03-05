@@ -1,10 +1,11 @@
 #if PLATFORM_WAYLAND
 
-#include <wayland-client-core.h>
-#include "util.hpp"
+#include <unistd.h>
+#include <cstring>
+#include <cerrno>
 
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
-#include "clipboard/wayland/wlr-data-control-unstable-v1.h"
+#include "util.hpp"
 
 CClipboardListenerWayland::CClipboardListenerWayland()
 {
@@ -12,11 +13,17 @@ CClipboardListenerWayland::CClipboardListenerWayland()
     if (!m_display)
         die("Failed to connect to wayland display!");
 
-    m_registry = wl_display_get_registry(m_display);
-    if (!m_registry)
-        die("Failed to get registry!");
+    /*m_pid = fork();
+    debug("pid = {}", m_pid);
 
-
+    if (m_pid < 0)
+        die("Failed to fork(): {}", strerror(errno));
+    else if (m_pid == 0) {
+        close(STDIN_FILENO);
+        main_waycopy(m_display, m_options);
+    }*/
+    close(STDIN_FILENO);
+    main_waycopy(m_display, m_options);
 }
 
 /*
@@ -28,12 +35,16 @@ void CClipboardListenerWayland::AddCopyCallback(const std::function<void(const C
 }
 
 void CClipboardListenerWayland::PollClipboard()
-{}
+{
+    debug("calling {} with m_pid = {}", __func__, m_pid);
+
+    if (m_pid == 0)
+        main_waypaste(m_display);
+}
 
 CClipboardListenerWayland::~CClipboardListenerWayland()
 {
-    if (m_display)
-        wl_display_disconnect(m_display);
+    wl_display_disconnect(m_display);
 }
 
 #endif // PLATFORM_WAYLAND

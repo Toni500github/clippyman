@@ -1,12 +1,18 @@
-#ifndef CLIPBOARD_LISTENER_WAYLAND_HPP_
-#define CLIPBOARD_LISTENER_WAYLAND_HPP_
+#ifndef _CLIPBOARD_LISTENER_WAYLAND_HPP_
+#define _CLIPBOARD_LISTENER_WAYLAND_HPP_
 
 #if PLATFORM_WAYLAND
 
-#include <wayland-client.h>
-#include <wayland-client-protocol.h>
+#include <string>
+#include <vector>
 
 #include "clipboard/ClipboardListener.hpp"
+
+extern "C" {
+    #include "clipboard/wayland/wayclip/common.h"
+    #include <wayland-client.h>
+    #include <wayland-client-protocol.h>
+}
 
 class CClipboardListenerWayland : public CClipboardListener
 {
@@ -26,13 +32,20 @@ private:
 
     wl_display* m_display = nullptr;
 
-    wl_registry* m_registry = nullptr;
+    struct options m_options = {
+        "text/plain;charset=utf-8",
+        NULL,
+        false,
+        false
+    };
 
     int m_EventSelectionChange;
+
+    pid_t m_pid = 0;
 
     std::string m_LastClipboardContent;
 };
 
 #endif  // PLATFORM_WAYLAND
 
-#endif // !CLIPBOARD_LISTENER_WAYLAND_HPP_
+#endif // !_CLIPBOARD_LISTENER_WAYLAND_HPP_

@@ -2,7 +2,6 @@
 -Wall
 -Wextra
 -Wpedantic
--std=c++20
 -DPLATFORM_WAYLAND=1
 -DPLATFORM_XORG=1
 -DVERSION="0.0.1"

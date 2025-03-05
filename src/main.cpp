@@ -4,6 +4,7 @@
 
 #include "EventData.hpp"
 #include "fmt/base.h"
+#include "util.hpp"
 
 #if PLATFORM_XORG
 # include "clipboard/x11/ClipboardListenerX11.hpp"
@@ -28,6 +29,7 @@ int main()
     while (true)
     {
         clipboardListener.PollClipboard();
+        debug("POLLING");
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
