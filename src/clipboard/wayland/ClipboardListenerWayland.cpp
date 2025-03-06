@@ -1,3 +1,4 @@
+#include <wayland-client-core.h>
 #if PLATFORM_WAYLAND
 
 #include <unistd.h>
@@ -24,6 +25,8 @@ CClipboardListenerWayland::CClipboardListenerWayland()
     }*/
     close(STDIN_FILENO);
     main_waycopy(m_display, m_options);
+
+    main_waypaste(m_display);
 }
 
 /*
@@ -39,7 +42,7 @@ void CClipboardListenerWayland::PollClipboard()
     debug("calling {} with m_pid = {}", __func__, m_pid);
 
     if (m_pid == 0)
-        main_waypaste(m_display);
+        wl_display_roundtrip(m_display);
 }
 
 CClipboardListenerWayland::~CClipboardListenerWayland()

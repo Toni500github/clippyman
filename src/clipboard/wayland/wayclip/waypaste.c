@@ -23,7 +23,10 @@ receive(int cond, struct zwlr_data_control_offer_v1 *offer)
 		copyfd(pipes[0], STDOUT_FILENO);
 		close(pipes[0]);
 
-		exit(0);
+		if (pipe(pipes) == -1)
+			wc_die("failed to create pipe");
+
+		// exit(0);
 	}
 
 	if (acceptedoffer)

@@ -28,6 +28,10 @@ public:
     void PollClipboard() override;
 
 private:
+    void WaypasteReceive(int cond, struct zwlr_data_control_offer_v1 *offer);
+
+    void _OnCopy(const std::string &data);
+
     std::vector<std::function<void(const CopyEvent&)>> m_CopyEventCallbacks;
 
     wl_display* m_display = nullptr;
@@ -44,6 +48,9 @@ private:
     pid_t m_pid = 0;
 
     std::string m_LastClipboardContent;
+    
+    struct zwlr_data_control_offer_v1 *m_acceptedoffer = NULL;
+    int m_pipes[2];
 };
 
 #endif  // PLATFORM_WAYLAND
