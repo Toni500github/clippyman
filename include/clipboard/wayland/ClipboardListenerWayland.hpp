@@ -55,4 +55,4 @@ private:
 
 #endif  // PLATFORM_WAYLAND
 
-#endif // !_CLIPBOARD_LISTENER_WAYLAND_HPP_
+#endif  // !_CLIPBOARD_LISTENER_WAYLAND_HPP_

@@ -5,7 +5,7 @@ APPPREFIX 	?= $(PREFIX)/share/applications
 VARS  	  	?=
 
 DEBUG 		?= 1
-PLATFORM	?= wayland
+PLATFORM	?= unix
 
 # https://stackoverflow.com/a/1079861
 # WAY easier way to build debug and release builds
@@ -22,16 +22,16 @@ else
         BUILDDIR  = build/release
 endif
 
-ifeq ($(filter xorg wayland both,$(PLATFORM)),)
-    $(error Invalid platform "$(PLATFORM)". Choose either: xorg, wayland, both)
+ifeq ($(filter xorg wayland unix,$(PLATFORM)),)
+    $(error Invalid platform "$(PLATFORM)". Choose either: xorg, wayland, unix)
 endif
 
 NAME		= clippyman
-TARGET		= clippyman
+TARGET		= $(NAME)
 OLDVERSION	= 0.0.0
 VERSION    	= 0.0.1
 BRANCH     	= $(shell git rev-parse --abbrev-ref HEAD)
-SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp src/clipboard/wayland/*.cpp)
+SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp src/clipboard/wayland/*.cpp src/clipboard/unix/*.cpp)
 OBJ 	   	= $(SRC:.cpp=.o)
 LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt
 CXXFLAGS  	?= -mtune=generic -march=native
@@ -39,16 +39,21 @@ CXXFLAGS        += -Wno-unused-parameter -fvisibility=hidden -Iinclude -std=c++1
 
 ifeq ($(PLATFORM),xorg)
 	LDFLAGS  += -lxcb -lxcb-xfixes
-	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_XORG=1
-	TARGET   := $(TARGET)-xorg
-endif
-ifeq ($(PLATFORM),wayland)
-	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client
-	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_XORG=0
-	TARGET   := $(TARGET)-wayland
+	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_XORG=1 -DPLATFORM_UNIX=0
+	TARGET   := $(TARGET)-$(PLATFORM)
 endif
 
-all: fmt toml both wayclip $(TARGET)
+ifeq ($(PLATFORM),wayland)
+	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client
+	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_XORG=0 -DPLATFORM_UNIX=0
+	TARGET   := $(TARGET)-$(PLATFORM)
+endif
+
+ifeq ($(PLATFORM),unix)
+	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_XORG=0 -DPLATFORM_UNIX=1
+endif
+
+all: fmt toml wayclip $(TARGET)
 
 fmt:
 ifeq ($(wildcard $(BUILDDIR)/fmt/libfmt.a),)
@@ -71,16 +76,8 @@ endif
 endif
 
 $(TARGET): fmt toml wayclip $(OBJ)
-ifneq ($(PLATFORM),both)
 	mkdir -p $(BUILDDIR)
 	$(CXX) $(OBJ) $(BUILDDIR)/toml++/toml.o -o $(BUILDDIR)/$(TARGET) $(LDFLAGS)
-endif
-
-both:
-ifeq ($(PLATFORM),both)
-	make clean && rm -f $(BUILDDIR)/$(TARGET)-wayland && make PLATFORM=wayland -j4
-	make clean && rm -f $(BUILDDIR)/$(TARGET)-xorg && make PLATFORM=xorg -j4
-endif
 
 dist:
 	bsdtar -zcf $(NAME)-v$(VERSION).tar.gz LICENSE $(TARGET).1 -C $(BUILDDIR) $(TARGET)

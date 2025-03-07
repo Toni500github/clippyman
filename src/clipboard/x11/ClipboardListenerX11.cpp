@@ -78,7 +78,7 @@ void CClipboardListenerX11::PollClipboard()
         if (error)
             die("Unknown libxcb error: {}", error->error_code);
 
-        std::string clipboardContent = (char*)xcb_get_property_value(propertyReply);
+        std::string clipboardContent = reinterpret_cast<char*>(xcb_get_property_value(propertyReply));
 
         /* Simple but fine approach */
         if (clipboardContent != m_LastClipboardContent)
