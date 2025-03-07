@@ -94,18 +94,5 @@ main_waycopy(struct wl_display *display, struct options options)
 	else
 		zwlr_data_control_device_v1_set_selection(device, source);
 
-	/*if (!options.foreground) {
-		pid_t pid = fork();
-		if (pid == -1)
-			wc_die("failed to fork");
-
-		if (pid != 0) {
-			close(STDERR_FILENO);
-			return 0;
-		}
-	}*/
-
-	while (wl_display_dispatch(display) != -1 && running);
-
 	return running;
 }
