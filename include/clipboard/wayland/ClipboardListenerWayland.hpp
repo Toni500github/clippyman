@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <linux/limits.h>
 
 #include "clipboard/ClipboardListener.hpp"
 
@@ -28,29 +29,23 @@ public:
     void PollClipboard() override;
 
 private:
-    void WaypasteReceive(int cond, struct zwlr_data_control_offer_v1 *offer);
-
-    void _OnCopy(const std::string &data);
 
     std::vector<std::function<void(const CopyEvent&)>> m_CopyEventCallbacks;
 
     wl_display* m_display = nullptr;
 
+    std::string m_path{"/tmp"};
+
     struct options m_options = {
-        "text/plain;charset=utf-8",
+        "text/plain",
         NULL,
         false,
         false
     };
 
-    int m_EventSelectionChange;
-
-    pid_t m_pid = 0;
+    unsigned int m_lastModifiedFileTime = 0;
 
     std::string m_LastClipboardContent;
-    
-    struct zwlr_data_control_offer_v1 *m_acceptedoffer = NULL;
-    int m_pipes[2];
 };
 
 #endif  // PLATFORM_WAYLAND

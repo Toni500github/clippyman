@@ -70,8 +70,8 @@ int main(int argc, char* argv[])
     if (!parseargs(argc, argv))
         return EXIT_FAILURE;
 
-    bool piped = !isatty(STDIN_FILENO);
-    if (argc < 2 || piped || input)
+    bool piped = isatty(fileno(stdin));
+    if (piped || input)
     {
         if (!piped)
             fmt::println("Type the text to copy into clipboard, then press enter and CTRL+D");

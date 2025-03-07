@@ -10,6 +10,7 @@
 
 struct wl_display *g_display;
 struct zwlr_data_control_offer_v1 *acceptedoffer = NULL;
+int g_fd;
 int pipes[2];
 
 static void
@@ -20,7 +21,7 @@ receive(int cond, struct zwlr_data_control_offer_v1 *offer)
 		wl_display_roundtrip(g_display);
 		close(pipes[1]);
 
-		copyfd(pipes[0], STDOUT_FILENO);
+		copyfd(pipes[0], g_fd);
 		close(pipes[0]);
 
 		if (pipe(pipes) == -1)
@@ -76,9 +77,10 @@ static const struct zwlr_data_control_device_v1_listener device_listener = {
 };
 
 void
-main_waypaste(struct wl_display *display)
+main_waypaste(struct wl_display *display, const int fd)
 {
         g_display = display;
+        g_fd = fd;
 
         struct wl_registry *const registry = wl_display_get_registry(display);
 	if (registry == NULL)
@@ -104,7 +106,4 @@ main_waypaste(struct wl_display *display)
 		wc_die("data device is null");
 
 	zwlr_data_control_device_v1_add_listener(device, &device_listener, NULL);
-
-	wl_display_roundtrip(display);
-
 }
