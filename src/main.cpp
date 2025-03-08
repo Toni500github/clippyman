@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
 #elif PLATFORM_WAYLAND
     CClipboardListenerWayland clipboardListener;
     clipboardListener.AddCopyCallback(CopyCallback);
-    clipboardListener.AddCopyCallback(CopyEntry)
+    clipboardListener.AddCopyCallback(CopyEntry);
 #endif
 
     CreateInitialCache("/tmp/test.json");
