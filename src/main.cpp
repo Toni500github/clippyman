@@ -28,12 +28,12 @@
 
 void CopyCallback(const CopyEvent& event)
 {
-    fmt::println("Copied: {}", event.content);
+    info("Copied: {}", event.content);
 }
 
 void CopyEntry(const CopyEvent& event)
 {
-    FILE* file = fopen("/tmp/test.json", "r");
+    FILE* file = fopen("/tmp/test.json", "r+");
     rapidjson::Document doc;
     char buf[UINT16_MAX] = {0};
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -43,29 +43,32 @@ void CopyEntry(const CopyEvent& event)
         fclose(file);
         die("Failed to parse /tmp/test.json: {} at offset {}", rapidjson::GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
     }
-    fclose(file);
 
     rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
 
     rapidjson::Value key("content", allocator);
     rapidjson::Value value(event.content.c_str(), allocator);
-    if (doc.HasMember(event.index.data()))
+    if (doc.HasMember(event.index.data()) && doc[event.index.data()].IsObject())
         doc[event.index.data()].AddMember(key, value, allocator);
     else
         doc["Other"].AddMember(key, value, allocator);
 
-    char writeBuffer[UINT16_MAX] = {0};
-    FILE* file2 = fopen("/tmp/test.json", "w");
+    // seek back to the beginning to overwrite
+    fseek(file, 0, SEEK_SET);
 
-    rapidjson::FileWriteStream writeStream(file2, writeBuffer, sizeof(writeBuffer));
+    char writeBuffer[UINT16_MAX] = {0};
+    rapidjson::FileWriteStream writeStream(file, writeBuffer, sizeof(writeBuffer));
     rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
     doc.Accept(fileWriter);
-    fclose(file2);
+
+    fflush(file);
+    ftruncate(fileno(file), ftell(file));
+    fclose(file);
 }
 
-void CreateInitialCache(const std::string& path)
+void CreateInitialCache(const std::string_view path)
 {
-    if (access(path.c_str(), F_OK) == 0)
+    if (access(path.data(), F_OK) == 0)
         return;
 
     constexpr std::string_view json = R"({
@@ -97,7 +100,7 @@ void CreateInitialCache(const std::string& path)
     "Z": {},
     "Other": {}
 })";
-    auto f = fmt::output_file(path, fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
+    auto f = fmt::output_file(path.data(), fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
     f.print("{}", json);
     f.close();
     //exit(0);
@@ -148,10 +151,6 @@ int main(int argc, char* argv[])
     clipboardListener.AddCopyCallback(CopyEntry)
 #endif
 
-    CClipboardListenerUnix clipboardListenerUnix;
-    clipboardListenerUnix.AddCopyCallback(CopyCallback);
-    clipboardListenerUnix.AddCopyCallback(CopyEntry);
-
     CreateInitialCache("/tmp/test.json");
 
     if (!parseargs(argc, argv))
@@ -161,6 +160,9 @@ int main(int argc, char* argv[])
     debug("piped = {} && input = {}", piped, input);
     if (piped || input)
     {
+        CClipboardListenerUnix clipboardListenerUnix;
+        clipboardListenerUnix.AddCopyCallback(CopyEntry);
+
         if (!piped)
             fmt::println("Type the text to copy into clipboard, then press enter and CTRL+D");
 

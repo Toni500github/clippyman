@@ -52,10 +52,10 @@ void CClipboardListenerUnix::PollClipboard()
     CopyEvent copyEvent{};
     copyEvent.content = clipboardContent;
     size_t pos = clipboardContent.find_first_not_of(' ');
-    if (pos != clipboardContent.npos)
-        copyEvent.index = std::toupper(clipboardContent.at(pos));
-    else
-        copyEvent.index = "Other";
+    if (pos == clipboardContent.npos)
+        return;
+
+    copyEvent.index = std::toupper(clipboardContent.at(pos));
 
     for (const auto& callback : m_CopyEventCallbacks)
         callback(copyEvent);
