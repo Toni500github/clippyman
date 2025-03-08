@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <cerrno>
 #include <climits>
 #include <cstdint>
@@ -45,14 +46,19 @@ void CClipboardListenerUnix::AddCopyCallback(const std::function<void(const Copy
 void CClipboardListenerUnix::PollClipboard()
 {
     std::string clipboardContent{in()};
-    if (clipboardContent != m_LastClipboardContent)
-    {
-        CopyEvent copyEvent{};
-        copyEvent.content = clipboardContent;
+    if (clipboardContent == m_LastClipboardContent)
+        return;
 
-        for (const auto& callback : m_CopyEventCallbacks)
-            callback(copyEvent);
-    }
+    CopyEvent copyEvent{};
+    copyEvent.content = clipboardContent;
+    size_t pos = clipboardContent.find_first_not_of(' ');
+    if (pos != clipboardContent.npos)
+        copyEvent.index = std::toupper(clipboardContent.at(pos));
+    else
+        copyEvent.index = "Other";
+
+    for (const auto& callback : m_CopyEventCallbacks)
+        callback(copyEvent);
 
     m_LastClipboardContent = clipboardContent;
 }
