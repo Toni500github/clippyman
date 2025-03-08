@@ -8,6 +8,7 @@
 #include <string_view>
 #include <thread>
 
+#include "config.hpp"
 #include "EventData.hpp"
 #include "fmt/base.h"
 #include "fmt/os.h"
@@ -26,6 +27,8 @@
 # include "clipboard/wayland/ClipboardListenerWayland.hpp"
 #endif
 
+Config config;
+
 void CopyCallback(const CopyEvent& event)
 {
     info("Copied: {}", event.content);
@@ -33,7 +36,7 @@ void CopyCallback(const CopyEvent& event)
 
 void CopyEntry(const CopyEvent& event)
 {
-    FILE* file = fopen("/tmp/test.json", "r+");
+    FILE* file = fopen(config.path.c_str(), "r+");
     rapidjson::Document doc;
     char buf[UINT16_MAX] = {0};
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -41,7 +44,7 @@ void CopyEntry(const CopyEvent& event)
     if (doc.ParseStream(stream).HasParseError())
     {
         fclose(file);
-        die("Failed to parse /tmp/test.json: {} at offset {}", rapidjson::GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
+        die("Failed to parse {}: {} at offset {}", config.path, rapidjson::GetParseError_En(doc.GetParseError()), doc.GetErrorOffset());
     }
 
     rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
@@ -66,7 +69,7 @@ void CopyEntry(const CopyEvent& event)
     fclose(file);
 }
 
-void CreateInitialCache(const std::string_view path)
+void CreateInitialCache(const std::string& path)
 {
     if (access(path.data(), F_OK) == 0)
         return;
@@ -100,23 +103,22 @@ void CreateInitialCache(const std::string_view path)
     "Z": {},
     "Other": {}
 })";
-    auto f = fmt::output_file(path.data(), fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
+    auto f = fmt::output_file(path, fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
     f.print("{}", json);
     f.close();
     //exit(0);
 }
-
-bool input = false;
 
 bool parseargs(int argc, char* argv[])
 {
     int opt = 0;
     int option_index = 0;
     opterr = 1; // re-enable since before we disabled for "invalid option" error
-    const char *optstring = "-Vhi";
+    const char *optstring = "-Vhip:";
 
     static const struct option opts[] = {
-        {"input", no_argument, 0, 'i'},
+        {"path",  required_argument, 0, 'p'},
+        {"input", no_argument,       0, 'i'},
         {0,0,0,0}
     };
 
@@ -129,7 +131,9 @@ bool parseargs(int argc, char* argv[])
                 break;
 
             case 'i':
-                input = true; break;
+                config.terminal_input = true; break;
+            case 'p':
+                config.path = optarg; break;
 
             default:
                 return false;
@@ -151,14 +155,14 @@ int main(int argc, char* argv[])
     clipboardListener.AddCopyCallback(CopyEntry);
 #endif
 
-    CreateInitialCache("/tmp/test.json");
-
     if (!parseargs(argc, argv))
         return EXIT_FAILURE;
 
+    CreateInitialCache(config.path);
+
     bool piped = !isatty(STDIN_FILENO);
-    debug("piped = {} && input = {}", piped, input);
-    if (piped || input)
+    debug("piped = {}", piped);
+    if (piped || config.terminal_input)
     {
         CClipboardListenerUnix clipboardListenerUnix;
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
