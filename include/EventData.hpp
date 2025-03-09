@@ -2,11 +2,11 @@
 #define _EVENTDATA_HPP_
 
 #include <string>
+#include <vector>
 
 struct CopyEvent
 {
-    std::string index;
-    unsigned int saved_time_secs;
+    std::vector<unsigned short> alphabet_indexes;
     std::string content;
 };
 

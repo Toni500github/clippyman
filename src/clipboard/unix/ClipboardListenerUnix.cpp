@@ -55,7 +55,7 @@ void CClipboardListenerUnix::PollClipboard()
     if (pos == clipboardContent.npos)
         return;
 
-    copyEvent.index = std::toupper(clipboardContent.at(pos));
+    fillVectorAlphabeticIndex(clipboardContent, copyEvent.alphabet_indexes);
 
     for (const auto& callback : m_CopyEventCallbacks)
         callback(copyEvent);

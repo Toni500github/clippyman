@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -11,6 +12,7 @@
 #include "config.hpp"
 #include "EventData.hpp"
 #include "fmt/base.h"
+#include "fmt/format.h"
 #include "fmt/os.h"
 #include "util.hpp"
 
@@ -49,12 +51,35 @@ void CopyEntry(const CopyEvent& event)
 
     rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
 
-    rapidjson::Value key("content", allocator);
-    rapidjson::Value value(event.content.c_str(), allocator);
-    if (doc.HasMember(event.index.data()) && doc[event.index.data()].IsObject())
-        doc[event.index.data()].AddMember(key, value, allocator);
+    rapidjson::Value value_content(event.content.data(), allocator);
+    if (doc["entries"].ObjectEmpty())
+    {
+        doc["entries"].AddMember("0", value_content, allocator);
+    }
     else
-        doc["Other"].AddMember(key, value, allocator);
+    {
+        const auto& lastId = (doc["entries"].MemberEnd()-1)->name;
+        const std::string& id_str = fmt::to_string(std::stoi(lastId.GetString())+1);
+        debug("id_str = {}", id_str);
+        rapidjson::GenericStringRef<char> strRef(id_str.c_str());
+        doc["entries"].AddMember(strRef, value_content, allocator);
+    }
+
+    for (int i = 0; i < 26; ++i)
+    {
+        if (event.alphabet_indexes[i] < 1)
+            continue;
+
+        std::string i_str{(char)(i+'a'), 1};
+        i_str.pop_back(); // \u0001 (idk)
+        debug("i_str = {}", i_str);
+        rapidjson::Value key(i_str.data(), allocator);
+        rapidjson::Value value(event.alphabet_indexes[i]);
+        if (!doc["index"].HasMember(key))
+            doc["index"].AddMember(key, value, allocator);
+        else
+            doc["index"][key].SetUint(event.alphabet_indexes[i]);
+    }
 
     // seek back to the beginning to overwrite
     fseek(file, 0, SEEK_SET);
@@ -75,33 +100,8 @@ void CreateInitialCache(const std::string& path)
         return;
 
     constexpr std::string_view json = R"({
-    "A": {},
-    "B": {},
-    "C": {},
-    "D": {},
-    "E": {},
-    "F": {},
-    "G": {},
-    "H": {},
-    "I": {},
-    "J": {},
-    "K": {},
-    "L": {},
-    "M": {},
-    "N": {},
-    "O": {},
-    "P": {},
-    "Q": {},
-    "R": {},
-    "S": {},
-    "T": {},
-    "U": {},
-    "V": {},
-    "W": {},
-    "X": {},
-    "Y": {},
-    "Z": {},
-    "Other": {}
+    "entries": {},
+    "index": {}
 })";
     auto f = fmt::output_file(path, fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
     f.print("{}", json);
