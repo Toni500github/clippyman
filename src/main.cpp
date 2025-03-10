@@ -16,6 +16,7 @@
 #include "fmt/os.h"
 #include "rapidjson/rapidjson.h"
 #include "util.hpp"
+#include "utf8.h"
 
 #include "clipboard/unix/ClipboardListenerUnix.hpp"
 #include "rapidjson/document.h"
@@ -52,49 +53,40 @@ void CopyEntry(const CopyEvent& event)
 
     rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
 
-    std::string id_str;
-
-    rapidjson::Value value_content(event.content.data(), allocator);
-    if (doc["entries"].ObjectEmpty())
+    std::string id_str{"0"};
+    if (!doc["entries"].ObjectEmpty())
     {
-        id_str = "0";
-        doc["entries"].AddMember("0", value_content, allocator);
+        const auto& lastId = (doc["entries"].MemberEnd() - 1)->name;
+        id_str = fmt::to_string(std::stoi(lastId.GetString()) + 1);
     }
-    else
+    rapidjson::GenericStringRef<char> id_ref(id_str.c_str());
+    rapidjson::Value value_content(event.content.c_str(), allocator);
+    doc["entries"].AddMember(id_ref, value_content, allocator);
+
+    for (const char* ptr = event.content.c_str(); *ptr; )
     {
-        const auto& lastId = (doc["entries"].MemberEnd()-1)->name;
-        id_str = fmt::to_string(std::stoi(lastId.GetString())+1);
-        debug("id_str = {}", id_str);
-        rapidjson::GenericStringRef<char> strRef(id_str.c_str());
-        doc["entries"].AddMember(strRef, value_content, allocator);
-    }
+        char utf8_char[5] = {0}; // UTF-8 characters are max 4 bytes + null terminator
+        int codepoint;
+        ptr = utf8codepoint(ptr, &codepoint);
+        utf8catcodepoint(utf8_char, codepoint, sizeof(utf8_char));
 
-    // Add it to the index.
-    for (const char &c : event.content) {
-        rapidjson::Value char_value(rapidjson::kArrayType);
+        std::string ch_str(utf8_char);
+        rapidjson::Value key;
+        key.SetString(ch_str.c_str(), static_cast<rapidjson::SizeType>(ch_str.length()), allocator); 
 
-        /* First Rule: If there's an entry for our ID, we must increment it by 1 for each other instance.
-         * The base is set to 1. So if this is the first instance of 'c', it will create a new member with the value 1.
-         *
-         * Like so:
-         * (ID #0 has 1 instance of 'c')
-         * "c": { "0": 1 }
-         */
-        if (char_value.HasMember(id_str.c_str())) {
-            char_value[id_str.c_str()].SetInt(char_value[id_str.c_str()].GetInt() + 1);
-        } else {
-            rapidjson::GenericStringRef<char> name(id_str.c_str());
-            char_value.AddMember(name, rapidjson::Value(1), allocator);
+        if (doc["index"].HasMember(key))
+        {
+            if (!doc["index"][key].HasMember(id_ref))
+                doc["index"][key].AddMember(id_ref, rapidjson::Value(1), allocator);
+            else
+                doc["index"][key][id_ref.s].SetUint(doc["index"][key][id_ref.s].GetUint()+1);
         }
-
-        /* Second Rule: if the index doesn't have the character, define it like so:
-         * "c": {}
-         */
-        rapidjson::GenericStringRef<char> name(&c);
-        if (doc["index"].HasMember(&c)) {
-            doc["index"].RemoveMember(&c);
+        else
+        {
+            rapidjson::Value obj(rapidjson::kObjectType);
+            obj.AddMember(id_ref, rapidjson::Value(1), allocator);
+            doc["index"].AddMember(key, obj, allocator);
         }
-        doc["index"].AddMember(name, char_value, allocator);
     }
 
     // seek back to the beginning to overwrite

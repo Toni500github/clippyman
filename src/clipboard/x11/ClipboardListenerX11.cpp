@@ -78,22 +78,21 @@ void CClipboardListenerX11::PollClipboard()
         if (error)
             die("Unknown libxcb error: {}", error->error_code);
 
-        std::string clipboardContent = reinterpret_cast<char*>(xcb_get_property_value(propertyReply));
+        std::string clipboardContent{reinterpret_cast<char*>(xcb_get_property_value(propertyReply))};
 
         /* Simple but fine approach */
-        if (clipboardContent != m_LastClipboardContent)
-        {
-            CopyEvent copyEvent{};
-            copyEvent.content = clipboardContent;
-            size_t pos = clipboardContent.find_first_not_of(' ');
-            if (pos != clipboardContent.npos)
-                copyEvent.index = std::toupper(clipboardContent.at(pos));
-            else
-                copyEvent.index = "Other";
+        if (clipboardContent == m_LastClipboardContent)
+            return;
 
-            for (const auto& callback : m_CopyEventCallbacks)
-                callback(copyEvent);
-        }
+        CopyEvent copyEvent{};
+        copyEvent.content = clipboardContent;
+        size_t pos = clipboardContent.find_first_not_of(' ');
+        if (pos == clipboardContent.npos)
+            return;
+
+        for (const auto& callback : m_CopyEventCallbacks)
+            callback(copyEvent);
+
 
         m_LastClipboardContent = clipboardContent;
 

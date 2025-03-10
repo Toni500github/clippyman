@@ -95,21 +95,20 @@ void CClipboardListenerWayland::PollClipboard()
     if (!clipboardContent.empty() && clipboardContent.back() == '\n')
         clipboardContent.pop_back();
 
-    if (clipboardContent != m_LastClipboardContent && !clipboardContent.empty())
-    {
-        CopyEvent copyEvent{};
-        copyEvent.content = clipboardContent;
-        size_t pos = clipboardContent.find_first_not_of(' ');
-        if (pos != clipboardContent.npos)
-            copyEvent.index = std::toupper(clipboardContent.at(pos));
-        else
-            copyEvent.index = "Other";
+    /* Simple but fine approach */
+    if (clipboardContent == m_LastClipboardContent)
+        return;
 
-        for (const auto& callback : m_CopyEventCallbacks)
-            callback(copyEvent);
+    CopyEvent copyEvent{};
+    copyEvent.content = clipboardContent;
+    size_t pos = clipboardContent.find_first_not_of(' ');
+    if (pos == clipboardContent.npos)
+        return;
 
-        m_LastClipboardContent = clipboardContent;
-    }
+    for (const auto& callback : m_CopyEventCallbacks)
+        callback(copyEvent);
+
+    m_LastClipboardContent = clipboardContent;
 
     truncate(m_path.c_str(), 0);
 }
