@@ -9,14 +9,14 @@
 template <typename... Args>
 void error(const std::string_view fmt, Args&&... args) noexcept
 {
-    fmt::print(stderr, BOLD_COLOR(fmt::rgb(fmt::color::red)), "ERROR: {}\n",
+    fmt::print(stderr, BOLD_COLOR(fmt::rgb(fmt::color::red)), "ERROR\033[0m: {}\n",
                fmt::format(fmt::runtime(fmt), std::forward<Args>(args)...));
 }
 
 template <typename... Args>
 void die(const std::string_view fmt, Args&&... args) noexcept
 {
-    fmt::print(stderr, BOLD_COLOR(fmt::rgb(fmt::color::red)), "FATAL: {}\n",
+    fmt::print(stderr, BOLD_COLOR(fmt::rgb(fmt::color::red)), "FATAL\033[0m: {}\n",
                fmt::format(fmt::runtime(fmt), std::forward<Args>(args)...));
     std::exit(1);
 }
@@ -33,14 +33,14 @@ void debug(const std::string_view fmt, Args&&... args) noexcept
 template <typename... Args>
 void warn(const std::string_view fmt, Args&&... args) noexcept
 {
-    fmt::print(BOLD_COLOR((fmt::rgb(fmt::color::yellow))), "WARNING: {}\n",
+    fmt::print(BOLD_COLOR((fmt::rgb(fmt::color::yellow))), "WARNING\033[0m: {}\n",
                fmt::format(fmt::runtime(fmt), std::forward<Args>(args)...));
 }
 
 template <typename... Args>
 void info(const std::string_view fmt, Args&&... args) noexcept
 {
-    fmt::print(BOLD_COLOR((fmt::rgb(fmt::color::cyan))), "INFO: {}\n",
+    fmt::print(BOLD_COLOR((fmt::rgb(fmt::color::cyan))), "INFO\033[0m: {}\n",
                fmt::format(fmt::runtime(fmt), std::forward<Args>(args)...));
 }
 

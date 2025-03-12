@@ -1,38 +1,29 @@
 #include "clipboard/unix/ClipboardListenerUnix.hpp"
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <cctype>
-#include <cerrno>
 #include <climits>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <iostream>
+#include <string>
+#include <vector>
 
-#include "util.hpp"
+#include "fmt/ranges.h"
 
 std::string in()
 {
-    if (feof(stdin))
-        std::exit(0);
+    std::vector<std::string> lines;
+    std::string line;
 
-    char characters[UINT16_MAX] = { 0 };
-    while (fgets(characters, sizeof(characters), stdin) != NULL)
-        debug("WE ARE READING");
+    while (std::getline(std::cin, line))
+    {
+        if (std::cin.eof())
+            break;
 
-    debug("chars = {}", characters);
+        lines.push_back(line);
+    }
 
-    std::string ret{characters};
-    memset(characters, 0, sizeof(characters));
-
-    if (!ret.empty() && ret.back() == '\n')
-        ret.pop_back();
-    return ret;
+    return fmt::format("{}", fmt::join(lines, "\n"));
 }
 
 /*

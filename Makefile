@@ -33,7 +33,7 @@ VERSION    	= 0.0.1
 BRANCH     	= $(shell git rev-parse --abbrev-ref HEAD)
 SRC 	   	= $(wildcard src/*.cpp src/clipboard/x11/*.cpp src/clipboard/wayland/*.cpp src/clipboard/unix/*.cpp)
 OBJ 	   	= $(SRC:.cpp=.o)
-LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt
+LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -lncurses
 CXXFLAGS  	?= -mtune=generic -march=native
 CXXFLAGS        += -Wno-unused-parameter -fvisibility=hidden -Iinclude -std=c++17 $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 

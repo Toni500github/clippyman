@@ -93,7 +93,6 @@ void CClipboardListenerX11::PollClipboard()
         for (const auto& callback : m_CopyEventCallbacks)
             callback(copyEvent);
 
-
         m_LastClipboardContent = clipboardContent;
 
         free(propertyReply);
