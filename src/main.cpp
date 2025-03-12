@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -37,13 +38,27 @@
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
 #endif
 
-Config config;
+// clang-format off
+// https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
+// because "--opt-arg arg" won't work
+// but "--opt-arg=arg" will
+#define OPTIONAL_ARGUMENT_IS_PRESENT \
+    ((optarg == NULL && optind < argc && argv[optind][0] != '-') \
+     ? (bool) (optarg = argv[optind++]) \
+     : (optarg != NULL))
+// clang-format on
 
-void CopyCallback(const CopyEvent& event) { info("Copied: {}", event.content); }
+
+std::string g_path;
+
+void CopyCallback(const CopyEvent& event)
+{
+    info("Copied: {}", event.content);
+}
 
 void CopyEntry(const CopyEvent& event)
 {
-    FILE*                     file = fopen(config.path.c_str(), "r+");
+    FILE*                     file = fopen(g_path.c_str(), "r+");
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -51,7 +66,7 @@ void CopyEntry(const CopyEvent& event)
     if (doc.ParseStream(stream).HasParseError())
     {
         fclose(file);
-        die("Failed to parse {}: {} at offset {}", config.path, rapidjson::GetParseError_En(doc.GetParseError()),
+        die("Failed to parse {}: {} at offset {}", g_path, rapidjson::GetParseError_En(doc.GetParseError()),
             doc.GetErrorOffset());
     }
 
@@ -121,6 +136,7 @@ R"({
     "index": {}
 })";
 
+    std::filesystem::create_directories(path.substr(0, path.rfind('/')));
     auto f = fmt::output_file(path, fmt::file::CREATE | fmt::file::RDWR | fmt::file::TRUNC);
     f.print("{}", json);
     f.close();
@@ -187,7 +203,7 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
     refresh();
 }
 
-int search_algo()
+int search_algo(const Config& config)
 {
     FILE*                     file = fopen(config.path.c_str(), "r+");
     rapidjson::Document       doc;
@@ -304,18 +320,53 @@ endwin:
     return 0;
 }
 
-bool parseargs(int argc, char* argv[])
+// clang-format off
+// parseargs() but only for parsing the user config path trough args
+// and so we can directly construct Config
+static std::string parse_config_path(int argc, char* argv[], const std::string& configDir)
+{
+    int opt = 0;
+    int option_index = 0;
+    opterr = 0;
+    const char *optstring = "-C:";
+    static const struct option opts[] = {
+        {"config", required_argument, 0, 'C'},
+        {0,0,0,0}
+    };
+
+    while ((opt = getopt_long(argc, argv, optstring, opts, &option_index)) != -1)
+    {
+        switch (opt)
+        {
+            // skip errors or anything else
+            case 0:
+            case '?':
+                break;
+
+            case 'C': 
+                if (!std::filesystem::exists(optarg))
+                    die("config file '{}' doesn't exist", optarg);
+                return optarg;
+        }
+    }
+
+    return configDir + "/config.toml";
+}
+
+bool parseargs(int argc, char* argv[], Config& config, const std::string_view configFile)
 {
     int opt               = 0;
     int option_index      = 0;
     opterr                = 1;  // re-enable since before we disabled for "invalid option" error
-    const char* optstring = "-Vhisp:";
+    const char* optstring = "-Vhisp:C:";
 
     // clang-format off
     static const struct option opts[] = {
         {"path",  required_argument, 0, 'p'},
         {"input", no_argument,       0, 'i'},
         {"search",no_argument,       0, 's'},
+        {"config",required_argument, 0, 'C'},
+        {"gen-config",no_argument,   0, 6969},
         {0,0,0,0}
     };
 
@@ -330,6 +381,15 @@ bool parseargs(int argc, char* argv[])
             case 'i': config.terminal_input = true; break;
             case 'p': config.path = optarg; break;
             case 's': config.search = true; break;
+            case 'C': // we have already did it in parse_config_path()
+                break;
+
+            case 6969:
+                if (OPTIONAL_ARGUMENT_IS_PRESENT)
+                    config.generateConfig(optarg);
+                else
+                    config.generateConfig(configFile);
+                exit(EXIT_SUCCESS);
 
             default: return false;
         }
@@ -350,14 +410,21 @@ int main(int argc, char* argv[])
     clipboardListener.AddCopyCallback(CopyEntry);
 #endif
 
-    if (!parseargs(argc, argv))
-        return EXIT_FAILURE;
+    const std::string& configDir  = getConfigDir();
+    const std::string& configFile = parse_config_path(argc, argv, configDir);
+
+    Config config(configFile, configDir);
+    if (!parseargs(argc, argv, config, configFile))
+        return 1;
+
+    config.loadConfigFile(configFile);
+    g_path = config.path;
 
     CreateInitialCache(config.path);
     setlocale(LC_ALL, "");
 
     if (config.search)
-        return search_algo();
+        return search_algo(config);
 
     bool piped = !isatty(STDIN_FILENO);
     debug("piped = {}", piped);
