@@ -1,7 +1,7 @@
 #include <getopt.h>
 #include <ncurses.h>
-#include <unistd.h>
 #include <wchar.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -147,13 +147,13 @@ std::vector<std::string> wrap_text(const std::string& text, size_t max_width)
 }
 
 void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width,
-                     const size_t max_visible, size_t selected, size_t scroll_offset)
+                     const size_t max_visible, const size_t selected, const size_t scroll_offset)
 {
     clear();
     box(stdscr, 0, 0); // Draw the root box
 
     attron(A_BOLD);
-    mvprintw(1, 2, "Search: %s", query.c_str()); // Display the search query
+    mvprintw(1, 2, "Search: %s", query.c_str());
     attroff(A_BOLD);
 
     int row = 2; // Start drawing items from row 2
@@ -182,6 +182,8 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
         items_displayed++;
     }
 
+    const int cursor_x = 2 + 8 + query.length(); // 2 for box border, 8 for "Search: ", query.length() for the query
+    move(1, cursor_x); // Move the cursor near the search query
     refresh();
 }
 
@@ -215,8 +217,8 @@ int search_algo()
     std::vector<std::string> results{ entries_value };  // Start with full list
 
     bool copied = false;
-    const int max_width   = getmaxx(stdscr) - 10;
-    const int max_visible = 10;
+    const int max_width   =  getmaxx(stdscr) - 5;
+    const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
     draw_search_box(query, results, max_width, max_visible, selected, scroll_offset);
 
     // Press 'ESC' to exit
@@ -232,9 +234,8 @@ int search_algo()
         }
         else if (ch == KEY_BACKSPACE || ch == 127)
         {
-            if (!query.empty())
-                query.pop_back();
-            --i;
+            if (!query.empty()) 
+            {query.pop_back(); i = 0;}
         }
         else if (ch == KEY_DOWN)
         {
@@ -254,7 +255,7 @@ int search_algo()
                     --scroll_offset;
             }
         }
-        else if (ch == '\n' && selected < std::string::npos && !results.empty())
+        else if (ch == '\n' && selected < std::string::npos-1 && !results.empty())
         {
             copied = true;
             goto endwin;
@@ -262,11 +263,11 @@ int search_algo()
         else if (isprint(ch))
         {
             query += ch;
-            rapidjson::GenericStringRef<char> ch_ref(&query.back());
             selected      = 0;
             scroll_offset = 0;
 
             results.clear();
+            rapidjson::GenericStringRef<char> ch_ref(&query.back());
             // {"index":{"c":{"0": [1,3,7]}}
             if (doc["index"].HasMember(ch_ref))
             {
@@ -353,12 +354,10 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
 
     CreateInitialCache(config.path);
+    setlocale(LC_ALL, "");
 
     if (config.search)
-    {
-        setlocale(LC_ALL, "");
         return search_algo();
-    }
 
     bool piped = !isatty(STDIN_FILENO);
     debug("piped = {}", piped);
