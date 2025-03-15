@@ -11,10 +11,10 @@ class Config
 {
 public:
     // Create .config directories and files and load the config file (args or default)
-    Config(const std::string_view configFile, const std::string_view configDir);
+    void Init(const std::string_view configFile, const std::string_view configDir);
 
-    bool search = false;
-    bool terminal_input = false;
+    bool arg_search = false;
+    bool arg_terminal_input = false;
     std::string path;
 
     /**
@@ -50,10 +50,11 @@ private:
     }
 };
 
-inline constexpr std::string_view AUTOCONFIG = R"([config]
-terminal-input = false
+extern Config config;
 
-path = "~/.cache/clippyman/history.json"
+inline constexpr std::string_view AUTOCONFIG = R"([config]
+# Path to where we store the clipbpoard history
+path = "$XDG_CACHE_HOME/clippyman/history.json"
 )";
 
 #endif // _CONFIG_HPP_

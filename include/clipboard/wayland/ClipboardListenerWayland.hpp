@@ -5,7 +5,6 @@
 
 #include <string>
 #include <vector>
-#include <linux/limits.h>
 
 #include "clipboard/ClipboardListener.hpp"
 
@@ -36,8 +35,8 @@ private:
 
     std::string m_path{"/tmp"};
 
-    struct options m_options = {
-        "text/plain",
+    struct wc_options m_options = {
+        "text/plain;charset=utf-8",
         NULL,
         false,
         false

@@ -7,7 +7,7 @@
 #include "fmt/os.h"
 #include "util.hpp"
 
-Config::Config(const std::string_view configFile, const std::string_view configDir)
+void Config::Init(const std::string_view configFile, const std::string_view configDir)
 {
     if (!std::filesystem::exists(configDir))
     {
@@ -37,8 +37,7 @@ void Config::loadConfigFile(const std::string_view filename)
             err.source().begin.line, err.source().begin.column);
     }
 
-    this->path           = getValue<std::string>("config.path", "~/.cache/clippyman/history.json");
-    this->terminal_input = getValue<bool>("config.terminal-input", false);
+    this->path = getValue<std::string>("config.path", "~/.cache/clippyman/history.json");
 }
 
 void Config::generateConfig(const std::string_view filename)

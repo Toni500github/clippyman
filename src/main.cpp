@@ -1,3 +1,8 @@
+#ifndef PLATFORM_UNIX
+# define PLATFORM_UNIX 0
+#endif
+
+
 #include <getopt.h>
 #include <ncurses.h>
 #include <wchar.h>
@@ -48,8 +53,7 @@
      : (optarg != NULL))
 // clang-format on
 
-
-std::string g_path;
+Config config;
 
 void CopyCallback(const CopyEvent& event)
 {
@@ -58,7 +62,7 @@ void CopyCallback(const CopyEvent& event)
 
 void CopyEntry(const CopyEvent& event)
 {
-    FILE*                     file = fopen(g_path.c_str(), "r+");
+    FILE*                     file = fopen(config.path.c_str(), "r+");
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -66,7 +70,7 @@ void CopyEntry(const CopyEvent& event)
     if (doc.ParseStream(stream).HasParseError())
     {
         fclose(file);
-        die("Failed to parse {}: {} at offset {}", g_path, rapidjson::GetParseError_En(doc.GetParseError()),
+        die("Failed to parse {}: {} at offset {}", config.path, rapidjson::GetParseError_En(doc.GetParseError()),
             doc.GetErrorOffset());
     }
 
@@ -177,13 +181,12 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
 
     for (size_t i = scroll_offset; i < results.size() && items_displayed < max_visible; ++i)
     {
-        const std::vector<std::string>& wrapped_lines = wrap_text(results[i], max_width - 6); // Adjust width for padding
         const bool is_selected = (i == selected);
 
         // Add vertical spacing between items
         row++;
 
-        for (const std::string& line : wrapped_lines)
+        for (const std::string& line : wrap_text(results[i], max_width - 6))
         {
             if (is_selected)
                 attron(A_REVERSE); // Apply highlight before printing
@@ -198,8 +201,9 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
         items_displayed++;
     }
 
+    // Move the cursor near the search query
     const int cursor_x = 2 + 8 + query.length(); // 2 for box border, 8 for "Search: ", query.length() for the query
-    move(1, cursor_x); // Move the cursor near the search query
+    move(1, cursor_x);
     refresh();
 }
 
@@ -217,8 +221,8 @@ int search_algo(const Config& config)
             doc.GetErrorOffset());
     }
 
-    initscr();             // Initialize ncurses
-    noecho();              // Disable echoing
+    initscr();
+    noecho();
     cbreak();              // Enable immediate character input
     keypad(stdscr, TRUE);  // Enable arrow keys
 
@@ -232,7 +236,6 @@ int search_algo(const Config& config)
     size_t                   scroll_offset = 0;
     std::vector<std::string> results{ entries_value };  // Start with full list
 
-    bool copied = false;
     const int max_width   =  getmaxx(stdscr) - 5;
     const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
     draw_search_box(query, results, max_width, max_visible, selected, scroll_offset);
@@ -273,8 +276,9 @@ int search_algo(const Config& config)
         }
         else if (ch == '\n' && selected < std::string::npos-1 && !results.empty())
         {
-            copied = true;
-            goto endwin;
+            endwin();
+            info("Copied selected content:\n{}", results[selected]);
+            return 0;
         }
         else if (isprint(ch))
         {
@@ -313,10 +317,7 @@ int search_algo(const Config& config)
         draw_search_box(query, ((results.empty() || query.empty()) ? entries_value : results), max_width, max_visible, selected, scroll_offset);
     }
 
-endwin:
     endwin();
-    if (copied)
-        info("Copied selected content:\n{}", results[selected]);
     return 0;
 }
 
@@ -353,7 +354,7 @@ static std::string parse_config_path(int argc, char* argv[], const std::string& 
     return configDir + "/config.toml";
 }
 
-bool parseargs(int argc, char* argv[], Config& config, const std::string_view configFile)
+bool parseargs(int argc, char* argv[], Config& config, const std::string& configFile)
 {
     int opt               = 0;
     int option_index      = 0;
@@ -362,11 +363,11 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string_view co
 
     // clang-format off
     static const struct option opts[] = {
-        {"path",  required_argument, 0, 'p'},
-        {"input", no_argument,       0, 'i'},
-        {"search",no_argument,       0, 's'},
-        {"config",required_argument, 0, 'C'},
-        {"gen-config",no_argument,   0, 6969},
+        {"path",        required_argument, 0, 'p'},
+        {"config",      required_argument, 0, 'C'},
+        {"input",       no_argument,       0, 'i'},
+        {"search",      no_argument,       0, 's'},
+        {"gen-config",  no_argument,       0, 6969},
         {0,0,0,0}
     };
 
@@ -378,9 +379,9 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string_view co
         {
             case 0: break;
 
-            case 'i': config.terminal_input = true; break;
             case 'p': config.path = optarg; break;
-            case 's': config.search = true; break;
+            case 's': config.arg_search = true; break;
+            case 'i': config.arg_terminal_input = true; break;
             case 'C': // we have already did it in parse_config_path()
                 break;
 
@@ -413,28 +414,30 @@ int main(int argc, char* argv[])
     const std::string& configDir  = getConfigDir();
     const std::string& configFile = parse_config_path(argc, argv, configDir);
 
-    Config config(configFile, configDir);
+    config.Init(configFile, configDir);
     if (!parseargs(argc, argv, config, configFile))
         return 1;
 
     config.loadConfigFile(configFile);
-    g_path = config.path;
 
     CreateInitialCache(config.path);
     setlocale(LC_ALL, "");
 
-    if (config.search)
+    if (config.arg_search && config.arg_terminal_input)
+        die("Please only use either --search or --input");
+
+    if (config.arg_search)
         return search_algo(config);
 
     bool piped = !isatty(STDIN_FILENO);
     debug("piped = {}", piped);
-    if (piped || config.terminal_input || PLATFORM_UNIX)
+    if (PLATFORM_UNIX || piped || config.arg_terminal_input)
     {
         CClipboardListenerUnix clipboardListenerUnix;
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
 
         if (!piped)
-            info("Type or Paste the text to copy, then press CTRL+D to save and exit");
+            info("Type or Paste the text to copy, then press enter and CTRL+D to save and exit");
 
         clipboardListenerUnix.PollClipboard();
         return EXIT_SUCCESS;
