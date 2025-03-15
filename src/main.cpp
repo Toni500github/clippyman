@@ -1,12 +1,11 @@
 #ifndef PLATFORM_UNIX
-# define PLATFORM_UNIX 0
+#define PLATFORM_UNIX 0
 #endif
-
 
 #include <getopt.h>
 #include <ncurses.h>
-#include <wchar.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -146,7 +145,7 @@ R"({
     f.close();
 }
 
-std::vector<std::string> wrap_text(const std::string& text, size_t max_width)
+static std::vector<std::string> wrap_text(const std::string& text, size_t max_width)
 {
     std::vector<std::string> lines;
     std::stringstream        ss(text);
@@ -166,18 +165,18 @@ std::vector<std::string> wrap_text(const std::string& text, size_t max_width)
     return lines;
 }
 
-void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width,
-                     const size_t max_visible, const size_t selected, const size_t scroll_offset)
+static void draw_search_box(const std::string& query, const std::vector<std::string>& entries_id, const std::vector<std::string>& results, const size_t max_width,
+                            const size_t max_visible, const size_t selected, const size_t scroll_offset)
 {
     clear();
-    box(stdscr, 0, 0); // Draw the root box
+    box(stdscr, 0, 0);  // Draw the root box
 
     attron(A_BOLD);
     mvprintw(1, 2, "Search: %s", query.c_str());
     attroff(A_BOLD);
 
-    int row = 2; // Start drawing items from row 2
-    size_t items_displayed = 0; // Track the number of items displayed
+    size_t row             = 2;  // Start drawing items from row 2
+    size_t items_displayed = 0;  // Track the number of items displayed
 
     for (size_t i = scroll_offset; i < results.size() && items_displayed < max_visible; ++i)
     {
@@ -189,23 +188,98 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
         for (const std::string& line : wrap_text(results[i], max_width - 6))
         {
             if (is_selected)
-                attron(A_REVERSE); // Apply highlight before printing
+                attron(A_REVERSE);  // Apply highlight before printing
 
             // Print the line with padding (4 spaces)
-            mvprintw(row++, 6, "%s", line.c_str()); // 6 for padding (2 + 4 spaces)
+            mvprintw(row++, 6, "%s. %s", entries_id[i].c_str(), line.c_str());  // 6 for padding (2 + 4 spaces)
 
             if (is_selected)
-                attroff(A_REVERSE); // Remove highlight after printing
+                attroff(A_REVERSE);  // Remove highlight after printing
         }
 
         items_displayed++;
     }
 
     // Move the cursor near the search query
-    const int cursor_x = 2 + 8 + query.length(); // 2 for box border, 8 for "Search: ", query.length() for the query
+    const int cursor_x = 2 + 8 + query.length();  // 2 for box border, 8 for "Search: ", query.length() for the query
     move(1, cursor_x);
     refresh();
 }
+
+// Begin: some code taken from https://github.com/rofl0r/ncdu in src/delete.c and src/util.c
+int subwinr;
+int subwinc;
+
+static void nccreate(int height, int width, const char* title)
+{
+    int i;
+
+    int winrows, wincols;
+    getmaxyx(stdscr, winrows, wincols);
+    subwinr = winrows / 2 - height / 2;
+    subwinc = wincols / 2 - width / 2;
+
+    /* clear window */
+    for (i = 0; i < height; i++)
+        mvhline(subwinr + i, subwinc, ' ', width);
+
+    /* box() only works around curses windows, so create our own */
+    move(subwinr, subwinc);
+    addch(ACS_ULCORNER);
+    for (i = 0; i < width - 2; i++)
+        addch(ACS_HLINE);
+    addch(ACS_URCORNER);
+
+    move(subwinr + height - 1, subwinc);
+    addch(ACS_LLCORNER);
+    for (i = 0; i < width - 2; i++)
+        addch(ACS_HLINE);
+    addch(ACS_LRCORNER);
+
+    mvvline(subwinr + 1, subwinc, ACS_VLINE, height - 2);
+    mvvline(subwinr + 1, subwinc + width - 1, ACS_VLINE, height - 2);
+
+    /* title */
+    attron(A_BOLD);
+    mvaddstr(subwinr, subwinc + 4, title);
+    attroff(A_BOLD);
+}
+
+static void ncprint(int r, int c, const char* fmt, ...)
+{
+    va_list arg;
+    va_start(arg, fmt);
+    move(subwinr + r, subwinc + c);
+    vw_printw(stdscr, fmt, arg);
+    va_end(arg);
+}
+
+#define ncaddstr(r, c, s) mvaddstr(subwinr + (r), subwinc + (c), s)
+#define ncmove(r, c) move(subwinr + (r), subwinc + (c))
+
+static void delete_draw_confirm(int seloption, const char* id)
+{
+    nccreate(6, 60, "Confirm delete");
+
+    ncprint(1, 2, "Are you sure you want to delete id %s?", id);
+
+    if (seloption == 1)
+        attron(A_REVERSE);
+    ncaddstr(4, 20, "yes");
+    attroff(A_REVERSE);
+
+    if (seloption == 0)
+        attron(A_REVERSE);
+    ncaddstr(4, 34, "no");
+    attroff(A_REVERSE);
+
+    switch (seloption)
+    {
+        case 0: ncmove(4, 20); break;
+        case 1: ncmove(4, 34); break;
+    }
+}
+// End
 
 int search_algo(const Config& config)
 {
@@ -226,9 +300,12 @@ int search_algo(const Config& config)
     cbreak();              // Enable immediate character input
     keypad(stdscr, TRUE);  // Enable arrow keys
 
-    std::vector<std::string> entries_value;
+    std::vector<std::string> entries_id, entries_value;
     for (auto it = doc["entries"].MemberBegin(); it != doc["entries"].MemberEnd(); ++it)
+    {
+        entries_id.push_back(it->name.GetString());
         entries_value.push_back(it->value.GetString());
+    }
 
     std::string              query;
     int                      ch            = 0;
@@ -236,14 +313,18 @@ int search_algo(const Config& config)
     size_t                   scroll_offset = 0;
     std::vector<std::string> results{ entries_value };  // Start with full list
 
-    const int max_width   =  getmaxx(stdscr) - 5;
+    const int max_width   = getmaxx(stdscr) - 5;
     const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
-    draw_search_box(query, results, max_width, max_visible, selected, scroll_offset);
+    draw_search_box(query, entries_id, results, max_width, max_visible, selected, scroll_offset);
 
-    // Press 'ESC' to exit
-    size_t i = 0;
-    while ((ch = getch()) != 27)
+    size_t i            = 0;
+    bool   del          = false;
+    bool   del_selected = false;
+    while ((ch = getch()) != ERR)
     {
+        if (ch == (del ? 'q':27)) // ESC
+            break;
+
         MEVENT event;
         if (ch == KEY_MOUSE && getmouse(&event) == OK)
         {
@@ -253,11 +334,18 @@ int search_algo(const Config& config)
         }
         else if (ch == KEY_BACKSPACE || ch == 127)
         {
-            if (!query.empty()) 
-            {query.pop_back(); i = 0;}
+            if (!query.empty())
+            {
+                query.pop_back();
+                i = 0;
+            }
         }
-        else if (ch == KEY_DOWN)
+        else if (ch == KEY_DOWN || ch == KEY_RIGHT)
         {
+            if (del)
+                del_selected = false;
+
+            else
             if (selected < results.size() - 1)
             {
                 ++selected;
@@ -265,8 +353,12 @@ int search_algo(const Config& config)
                     ++scroll_offset;
             }
         }
-        else if (ch == KEY_UP)
+        else if (ch == KEY_UP || ch == KEY_LEFT)
         {
+            if (del)
+                del_selected = true;
+
+            else
             if (selected > 0)
             {
                 --selected;
@@ -274,7 +366,40 @@ int search_algo(const Config& config)
                     --scroll_offset;
             }
         }
-        else if (ch == '\n' && selected < std::string::npos-1 && !results.empty())
+        else if (ch == 'd' && !del)
+        {
+            del = true;
+            curs_set(0);
+        }
+        else if (del && ch == '\n' && del_selected)
+        {
+            del = false;
+            results.erase(results.begin()+selected);
+            entries_value.erase(entries_value.begin()+selected);
+            doc["entries"].EraseMember(entries_id[selected].c_str());
+            // {"index":{"c":{"0": [1,3,7]}}}
+            for (auto it = doc["index"].MemberBegin(); it != doc["index"].MemberEnd(); ++it)
+                doc["index"][it->name.GetString()].EraseMember(entries_id[selected].c_str());
+
+            entries_id.erase(entries_id.begin()+selected);
+
+            selected = 0;
+            scroll_offset = 0;
+            fseek(file, 0, SEEK_SET);
+
+            char                                                writeBuffer[UINT16_MAX] = { 0 };
+            rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
+            rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
+            fileWriter.SetFormatOptions(rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
+            doc.Accept(fileWriter);
+            fflush(file);
+            ftruncate(fileno(file), ftell(file));
+        }
+        else if (del && !del_selected)
+        {
+            del = false;
+        }
+        else if (ch == '\n' && selected < std::string::npos - 1 && !results.empty())
         {
             endwin();
             info("Copied selected content:\n{}", results[selected]);
@@ -288,7 +413,7 @@ int search_algo(const Config& config)
 
             results.clear();
             rapidjson::GenericStringRef<char> ch_ref(&query.back());
-            // {"index":{"c":{"0": [1,3,7]}}
+            // {"index":{"c":{"0": [1,3,7]}}}
             if (doc["index"].HasMember(ch_ref))
             {
                 // {"0": [1,3,7]}
@@ -314,7 +439,11 @@ int search_algo(const Config& config)
                 selected = results.empty() ? -1 : 0;  // Keep selection valid
         }
 
-        draw_search_box(query, ((results.empty() || query.empty()) ? entries_value : results), max_width, max_visible, selected, scroll_offset);
+        if (del)
+            delete_draw_confirm(del_selected, entries_id[selected].c_str());
+        else
+            draw_search_box(query, entries_id, ((results.empty() || query.empty()) ? entries_value : results), max_width,
+                            max_visible, selected, scroll_offset);
     }
 
     endwin();
@@ -382,15 +511,14 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
             case 'p': config.path = optarg; break;
             case 's': config.arg_search = true; break;
             case 'i': config.arg_terminal_input = true; break;
-            case 'C': // we have already did it in parse_config_path()
-                break;
+            case 'C': break;  // we have already did it in parse_config_path()
 
             case 6969:
                 if (OPTIONAL_ARGUMENT_IS_PRESENT)
                     config.generateConfig(optarg);
                 else
                     config.generateConfig(configFile);
-                exit(EXIT_SUCCESS);
+                std::exit(EXIT_SUCCESS);
 
             default: return false;
         }
@@ -431,7 +559,7 @@ int main(int argc, char* argv[])
 
     bool piped = !isatty(STDIN_FILENO);
     debug("piped = {}", piped);
-    if (PLATFORM_UNIX || piped || config.arg_terminal_input)
+    if (piped || PLATFORM_UNIX || config.arg_terminal_input)
     {
         CClipboardListenerUnix clipboardListenerUnix;
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
