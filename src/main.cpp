@@ -54,6 +54,31 @@
 
 Config config;
 
+static void version()
+{
+    fmt::print("clippyman " VERSION " branch " BRANCH "\n");
+    std::exit(EXIT_SUCCESS);
+}
+
+static void help(bool invalid_opt = false)
+{
+    constexpr std::string_view help =
+R"(Usage: clippyman [OPTIONS]...
+    -i, --input                 Enter in terminal input mode
+    -p, --path <path>           Path to where we'll search/save the clipboard history
+    -s, --search		Delete/Search history (d for delete, enter for output selected text)
+
+    -C, --config <path>         Path to the config file to use
+    --gen-config [<path>]       Generate default config file to config folder (if path, it will generate to the path)
+                                Will ask for confirmation if file exists already
+
+    -h, --help                  Print this help menu
+    -V, --version               Print the version along with the git branch it was built
+)";
+    fmt::print("{}\n", help);
+    std::exit(invalid_opt);
+}
+
 void CopyCallback(const CopyEvent& event)
 {
     info("Copied: {}", event.content);
@@ -492,11 +517,15 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
 
     // clang-format off
     static const struct option opts[] = {
-        {"path",        required_argument, 0, 'p'},
-        {"config",      required_argument, 0, 'C'},
-        {"input",       no_argument,       0, 'i'},
-        {"search",      no_argument,       0, 's'},
-        {"gen-config",  no_argument,       0, 6969},
+        {"version",    no_argument,       0, 'V'},
+        {"help",       no_argument,       0, 'h'},
+        {"input",      no_argument,       0, 'i'},
+        {"search",     no_argument,       0, 's'},
+
+        {"path",       required_argument, 0, 'p'},
+        {"config",     required_argument, 0, 'C'},
+        {"gen-config", optional_argument, 0, 6969},
+
         {0,0,0,0}
     };
 
@@ -507,6 +536,10 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
         switch (opt)
         {
             case 0: break;
+            case '?': help(EXIT_FAILURE); break;
+
+            case 'V': version(); break;
+            case 'h': help(); break;
 
             case 'p': config.path = optarg; break;
             case 's': config.arg_search = true; break;
