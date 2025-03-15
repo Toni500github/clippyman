@@ -37,7 +37,9 @@ void Config::loadConfigFile(const std::string_view filename)
             err.source().begin.line, err.source().begin.column);
     }
 
-    this->path = getValue<std::string>("config.path", "~/.cache/clippyman/history.json");
+    this->path         = getValue<std::string>("config.path", "~/.cache/clippyman/history.json");
+    this->wl_seat      = getValue<std::string>("config.wl-seat", "");
+    this->primary_clip = getValue<bool>("config.primary", false);
 }
 
 void Config::generateConfig(const std::string_view filename)

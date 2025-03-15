@@ -15,7 +15,10 @@ public:
 
     bool arg_search = false;
     bool arg_terminal_input = false;
+    
     std::string path;
+    std::string wl_seat;
+    bool primary_clip = false;
 
     /**
      * Load config file and parse every config variables
@@ -54,7 +57,13 @@ extern Config config;
 
 inline constexpr std::string_view AUTOCONFIG = R"([config]
 # Path to where we store the clipbpoard history
-path = "$XDG_CACHE_HOME/clippyman/history.json"
+path = "~/.cache/clippyman/history.json"
+
+# Use the primary clipbpoard instead
+primary = false
+
+# The seat for using in wayland (i don't know what that is tbh, just leave it empty)
+wl-seat = ""
 )";
 
 #endif // _CONFIG_HPP_

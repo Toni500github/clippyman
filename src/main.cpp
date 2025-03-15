@@ -38,6 +38,9 @@
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 #elif PLATFORM_WAYLAND
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
+extern "C" {
+    #include "clipboard/wayland/wayclip/common.h"
+}
 #endif
 
 // clang-format off
@@ -70,6 +73,8 @@ R"(Usage: clippyman [OPTIONS]...
     -i, --input                 Enter in terminal input mode
     -p, --path <path>           Path to where we'll search/save the clipboard history
     -s, --search		Delete/Search history (d for delete, enter for output selected text)
+    -P, --primary [<bool>]      Use the primary clipboard instead
+    --wl-seat <name>            The seat for using in wayland (just leave it empty if you don't know what's this)
 
     -C, --config <path>         Path to the config file to use
     --gen-config [<path>]       Generate default config file to config folder (if path, it will generate to the path)
@@ -342,6 +347,11 @@ int search_algo(const Config& config)
     return 0;
 }
 
+static bool str_to_bool(const std::string_view str)
+{
+    return (str == "true" || str == "1" || str == "enable");
+}
+
 // clang-format off
 // parseargs() but only for parsing the user config path trough args
 // and so we can directly construct Config
@@ -380,7 +390,7 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
     int opt               = 0;
     int option_index      = 0;
     opterr                = 1;  // re-enable since before we disabled for "invalid option" error
-    const char* optstring = "-Vhisp:C:";
+    const char* optstring = "-Vhisp:C:P::";
 
     // clang-format off
     static const struct option opts[] = {
@@ -391,6 +401,8 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
 
         {"path",       required_argument, 0, 'p'},
         {"config",     required_argument, 0, 'C'},
+        {"primary",    optional_argument, 0, 'P'},
+        {"wl-seat",    required_argument, 0, 6968},
         {"gen-config", optional_argument, 0, 6969},
 
         {0,0,0,0}
@@ -411,7 +423,15 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
             case 'p': config.path = optarg; break;
             case 's': config.arg_search = true; break;
             case 'i': config.arg_terminal_input = true; break;
+            case 6968: config.wl_seat = optarg;
             case 'C': break;  // we have already did it in parse_config_path()
+
+            case 'P': 
+                if (OPTIONAL_ARGUMENT_IS_PRESENT)
+                    config.primary_clip = str_to_bool(optarg);
+                else
+                    config.primary_clip = true;
+                break;
 
             case 6969:
                 if (OPTIONAL_ARGUMENT_IS_PRESENT)
@@ -434,7 +454,14 @@ int main(int argc, char* argv[])
     clipboardListener.AddCopyCallback(CopyCallback);
     clipboardListener.AddCopyCallback(CopyEntry);
 #elif PLATFORM_WAYLAND
-    CClipboardListenerWayland clipboardListener;
+    struct wc_options wl_options = {
+        "text/plain;charset=utf-8",
+        config.wl_seat.empty() ? NULL : config.wl_seat.c_str(),
+        false,
+        config.primary_clip
+    };
+
+    CClipboardListenerWayland clipboardListener(wl_options);
     clipboardListener.AddCopyCallback(CopyCallback);
     clipboardListener.AddCopyCallback(CopyEntry);
 #endif
