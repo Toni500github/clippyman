@@ -120,7 +120,7 @@ void CopyEntry(const CopyEvent& event)
     rapidjson::Value                  value_content(event.content.c_str(), allocator);
     doc["entries"].AddMember(id_ref, value_content, allocator);
 
-    size_t i = 0;
+    unsigned int i = 0;
     for (const char* ptr = event.content.c_str(); *ptr; ++i)
     {
         char utf8_char[5] = { 0 };  // UTF-8 characters are max 4 bytes + null terminator
@@ -229,7 +229,7 @@ restart:
     bool   del_selected = false;
     while ((ch = getch()) != ERR)
     {
-        if (ch == (del ? 'q' : 27))  // ESC
+        if (!del && ch == 27)  // ESC
             break;
 
         if (ch == '\t')
@@ -378,7 +378,7 @@ restart:
                 ftruncate(fileno(file), ftell(file));
                 goto restart;  // yes... let's just restart everything for now
             }
-            else if (del && !del_selected)
+            else if (del && (!del_selected || ch == 'q'))
             {
                 del = false;
             }
