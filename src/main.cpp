@@ -1,4 +1,3 @@
-#include <iostream>
 #ifndef PLATFORM_UNIX
 #define PLATFORM_UNIX 0
 #endif
@@ -7,6 +6,7 @@
 #include <ncurses.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -212,21 +212,21 @@ restart:
         results.push_back(it->value.GetString());
     }
 
-    std::string              query;
-    int                      ch            = 0;
-    size_t                   selected      = 0;
-    size_t                   scroll_offset = 0;
-    size_t                   cursor_x      = 2 + 8; // 2 for box border, 8 for "Search: "
-    bool                     is_search_tab = true;
+    std::string query;
+    int         ch            = 0;
+    size_t      selected      = 0;
+    size_t      scroll_offset = 0;
+    size_t      cursor_x      = 2 + 8;  // 2 for box border, 8 for "Search: "
+    bool        is_search_tab = true;
 
     const int max_width   = getmaxx(stdscr) - 5;
     const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
     draw_search_box(query, results_id, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 
-    size_t i             = 0;
-    bool   del           = false;
-    bool   del_selected  = false;
+    size_t i            = 0;
+    bool   del          = false;
+    bool   del_selected = false;
     while ((ch = getch()) != ERR)
     {
         if (ch == (del ? 'q' : 27))  // ESC
@@ -235,10 +235,10 @@ restart:
         if (ch == '\t')
         {
             is_search_tab = !is_search_tab;
-            curs_set(is_search_tab);
         }
         else if (is_search_tab)
         {
+            curs_set(1);
             del = false;
             bool erased = false;
             if (ch == KEY_BACKSPACE || ch == 127)
@@ -269,31 +269,47 @@ restart:
             
             if (isprint(ch))
             {
-                if (!erased) {
+                if (i == 0)
+                {
+                    results.clear();
+                    results_id.clear();
+                }
+                if (!erased)
                     // pass then increase
                     query.insert(cursor_x++ - 2 - 8, 1, ch);
-                }
+
                 selected      = 0;
                 scroll_offset = 0;
 
-                results.clear();
-                results_id.clear();
-                rapidjson::GenericStringRef<char> ch_ref(&query.back());
-                // {"index":{"c":{"0": [1,3,7]}}}
-                if (doc["index"].HasMember(ch_ref))
+                if (i > 0)
                 {
-                    // {"0": [1,3,7]}
-                    for (auto it_id = doc["index"][ch_ref.s].MemberBegin(); it_id != doc["index"][ch_ref.s].MemberEnd(); ++it_id)
+                    results.erase(std::remove_if(results.begin(), results.end(),[&](const std::string& s){return s[i] != ch;}),
+                                  results.end());
+                }
+                else
+                {
+                    rapidjson::GenericStringRef<char> ch_ref(&query.back());
+
+                    // {"index":{"c":{"0": [1,3,7]}}}
+                    if (doc["index"].HasMember(ch_ref))
                     {
-                        if (!it_id->value.IsArray())
-                            continue;
-                        // [1,3,7]
-                        for (auto it_arr = it_id->value.GetArray().Begin(); it_arr != it_id->value.GetArray().End(); ++it_arr)
+                        // {"0": [1,3,7]}
+                        for (auto it_id = doc["index"][ch_ref.s].MemberBegin();
+                             it_id != doc["index"][ch_ref.s].MemberEnd(); ++it_id)
                         {
-                            if (entries_value[std::stoi(it_id->name.GetString())].find(query) != std::string::npos) {
-                                results_id.push_back(it_id->name.GetString());
-                                results.push_back(doc["entries"][it_id->name.GetString()].GetString());
-                                break;
+                            if (!it_id->value.IsArray())
+                                continue;
+                            // [1,3,7]
+                            for (auto it_arr = it_id->value.GetArray().Begin(); it_arr != it_id->value.GetArray().End();
+                                 ++it_arr)
+                            {
+                                unsigned int n_i = it_arr->GetUint();
+                                if (n_i <= i && n_i == i)
+                                {
+                                    results_id.push_back(it_id->name.GetString());
+                                    results.push_back(doc["entries"][it_id->name.GetString()].GetString());
+                                    break;
+                                }
                             }
                         }
                     }
@@ -306,6 +322,7 @@ restart:
         }
         else
         {
+            curs_set(0);
             if (ch == KEY_DOWN || ch == KEY_RIGHT)
             {
                 if (del)
@@ -336,7 +353,7 @@ restart:
             }
             else if (del && ch == '\n' && del_selected)
             {
-                del = false;
+                del          = false;
                 del_selected = false;
                 results.clear();
                 entries_id.clear();
@@ -359,7 +376,7 @@ restart:
                 doc.Accept(fileWriter);
                 fflush(file);
                 ftruncate(fileno(file), ftell(file));
-                goto restart;
+                goto restart;  // yes... let's just restart everything for now
             }
             else if (del && !del_selected)
             {
@@ -376,8 +393,9 @@ restart:
         if (del)
             delete_draw_confirm(del_selected, results_id[selected].c_str());
         else
-            draw_search_box(query, ((results_id.empty() || query.empty()) ? entries_id : results_id), ((results.empty() || query.empty()) ? entries_value : results),
-                            max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
+            draw_search_box(query, ((results_id.empty() || query.empty()) ? entries_id : results_id),
+                            ((results.empty() || query.empty()) ? entries_value : results), max_width, max_visible,
+                            selected, scroll_offset, cursor_x, is_search_tab);
     }
 
     endwin();
