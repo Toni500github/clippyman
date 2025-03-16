@@ -1,3 +1,4 @@
+#include <iostream>
 #ifndef PLATFORM_UNIX
 #define PLATFORM_UNIX 0
 #endif
@@ -239,6 +240,7 @@ restart:
         else if (is_search_tab)
         {
             del = false;
+            bool erased = false;
             if (ch == KEY_BACKSPACE || ch == 127)
             {
                 if (!query.empty())
@@ -247,6 +249,11 @@ restart:
                     if (cursor_x > 2 + 8)
                         query.erase(--cursor_x - 2 - 8, 1);
                     i = 0;
+
+                    if (!query.empty()) {
+                        ch = query.back();
+                        erased = true;
+                    }
                 }
             }
             else if (ch == KEY_LEFT)
@@ -259,10 +266,13 @@ restart:
                 if (cursor_x < 2 + 8 + query.size())
                     ++cursor_x;
             }
-            else if (isprint(ch))
+            
+            if (isprint(ch))
             {
-                // pass then increase
-                query.insert(cursor_x++ - 2 - 8, 1, ch);
+                if (!erased) {
+                    // pass then increase
+                    query.insert(cursor_x++ - 2 - 8, 1, ch);
+                }
                 selected      = 0;
                 scroll_offset = 0;
 
@@ -280,9 +290,7 @@ restart:
                         // [1,3,7]
                         for (auto it_arr = it_id->value.GetArray().Begin(); it_arr != it_id->value.GetArray().End(); ++it_arr)
                         {
-                            unsigned int n_i = it_arr->GetUint();
-                            if (n_i <= i && n_i == i)
-                            {
+                            if (entries_value[std::stoi(it_id->name.GetString())].find(query) != std::string::npos) {
                                 results_id.push_back(it_id->name.GetString());
                                 results.push_back(doc["entries"][it_id->name.GetString()].GetString());
                                 break;
