@@ -226,7 +226,6 @@ restart:
     draw_search_box(query, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 
-    size_t i            = 0;
     bool   del          = false;
     bool   del_selected = false;
     while ((ch = getch()) != ERR)
@@ -250,14 +249,10 @@ restart:
                     // decrease then pass
                     if (cursor_x > SEARCH_TITLE_LEN)
                         query.erase(--cursor_x - SEARCH_TITLE_LEN, 1);
-    
-                    i = cursor_x - SEARCH_TITLE_LEN;
 
-                    if (!query.empty())
-                    {
-                        ch = query.back();
-                        erased = true;
-                    }
+                    erased = true;
+                    results = entries_value;
+                    results.erase(std::remove_if(results.begin(), results.end(), [&](const std::string& s){return !hasStart(s, query);}), results.end());
                 }
             }
             else if (ch == KEY_LEFT)
@@ -270,55 +265,18 @@ restart:
                 if (cursor_x < SEARCH_TITLE_LEN + query.size())
                     ++cursor_x;
             }
-
-            if (std::isprint(ch))
+            else
             {
-                if (i == 0)
-                {
-                    results.clear();
-                    results_id.clear();
-                }
+                // pass then increase
                 if (!erased)
-                    // pass then increase
                     query.insert(cursor_x++ - SEARCH_TITLE_LEN, 1, ch);
+                erased = false;
 
                 selected      = 0;
                 scroll_offset = 0;
 
-                if (i > 0)
-                {
-                    results.erase(std::remove_if(results.begin(), results.end(),[&](const std::string& s){return s[i] != ch;}),
-                                  results.end());
-                }
-                else
-                {
-                    rapidjson::GenericStringRef<char> ch_ref(&query.back());
-
-                    // {"index":{"c":{"0": [1,3,7]}}}
-                    if (doc["index"].HasMember(ch_ref))
-                    {
-                        // {"0": [1,3,7]}
-                        for (auto it_id = doc["index"][ch_ref.s].MemberBegin();
-                             it_id != doc["index"][ch_ref.s].MemberEnd(); ++it_id)
-                        {
-                            if (!it_id->value.IsArray())
-                                continue;
-                            // [1,3,7]
-                            for (auto it_arr = it_id->value.GetArray().Begin(); it_arr != it_id->value.GetArray().End();
-                                 ++it_arr)
-                            {
-                                unsigned int n_i = it_arr->GetUint();
-                                if (n_i <= i && n_i == i)
-                                {
-                                    results_id.push_back(it_id->name.GetString());
-                                    results.push_back(doc["entries"][it_id->name.GetString()].GetString());
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                ++i;
+                results = entries_value;
+                results.erase(std::remove_if(results.begin(), results.end(), [&](const std::string& s){return !hasStart(s, query);}), results.end());
 
                 if (selected >= results.size())
                     selected = results.empty() ? -1 : 0;  // Keep selection valid
