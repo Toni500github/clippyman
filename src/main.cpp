@@ -1,4 +1,3 @@
-#include <locale>
 #ifndef PLATFORM_UNIX
 #define PLATFORM_UNIX 0
 #endif
@@ -58,11 +57,9 @@ extern "C" {
 
 Config config;
 // src/box.cpp
-void draw_search_box(const std::string& query, const std::vector<std::string>& entries_id,
-                     const std::vector<std::string>& results, const size_t max_width, const size_t max_visible,
+void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width, const size_t max_visible,
                      const size_t selected, const size_t scroll_offset, const size_t cursor_x, bool is_search_tab);
-void delete_draw_confirm(int seloption, const char* id);
-
+void delete_draw_confirm(const int seloption);
 
 static void version()
 {
@@ -226,7 +223,7 @@ restart:
 
     const int max_width   = getmaxx(stdscr) - 5;
     const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
-    draw_search_box(query, results_id, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
+    draw_search_box(query, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 
     size_t i            = 0;
@@ -273,7 +270,8 @@ restart:
                 if (cursor_x < SEARCH_TITLE_LEN + query.size())
                     ++cursor_x;
             }
-            else if (ch >= 32) // isprint
+
+            if (std::isprint(ch))
             {
                 if (i == 0)
                 {
@@ -396,10 +394,9 @@ restart:
         }
 
         if (del)
-            delete_draw_confirm(del_selected, results_id[selected].c_str());
+            delete_draw_confirm(del_selected);
         else
-            draw_search_box(query, ((results_id.empty() || query.empty()) ? entries_id : results_id),
-                            ((results.empty() || query.empty()) ? entries_value : results), max_width, max_visible,
+            draw_search_box(query, ((results.empty() || query.empty()) ? entries_value : results), max_width, max_visible,
                             selected, scroll_offset, cursor_x, is_search_tab);
     }
 
