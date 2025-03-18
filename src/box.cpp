@@ -110,8 +110,12 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& e
     attron(A_BOLD);
     mvprintw(1, 2, "Search: %s", query.c_str());
     attroff(A_BOLD);
+    if (results.size() == 1)
+        mvprintw(2, 2, "(1 result)");
+    else
+        mvprintw(2, 2, "(%zu results)", results.size());
 
-    size_t row             = 2;  // Start drawing items from row 2
+    size_t row             = 3;  // Start drawing items from row 3
     size_t items_displayed = 0;  // Track the number of items displayed
 
     for (size_t i = scroll_offset; i < results.size() && items_displayed < max_visible; ++i)

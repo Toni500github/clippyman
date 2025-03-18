@@ -96,9 +96,14 @@ void CClipboardListenerWayland::PollClipboard()
     if (!clipboardContent.empty() && clipboardContent.back() == '\n')
         clipboardContent.pop_back();
 
-    /* Simple but fine approach */
-    if (clipboardContent == m_LastClipboardContent)
-        return;
+    if (clipboardContent[0] == '\0') {
+        for (size_t i = 0; i < clipboardContent.size(); i++) {
+            if (clipboardContent[i] == '\0')
+                continue;
+
+            clipboardContent = clipboardContent.substr(i);
+        }
+    }
 
     CopyEvent copyEvent{};
     copyEvent.content = clipboardContent;
