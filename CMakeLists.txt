@@ -7,6 +7,13 @@ project(clippyman)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3 -O0 -DDEBUG=1 -Wall -Wextra -Wpedantic -Wno-unused-parameter")
 
+# https://github.com/dacap/clip/blob/main/CMakeLists.txt
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  # Use libc++ explicitly so we can compile for
+  # CMAKE_OSX_DEPLOYMENT_TARGET=10.7 or 10.8
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+endif()
+
 include_directories(include)
 
 file(GLOB
