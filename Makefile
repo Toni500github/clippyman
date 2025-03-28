@@ -45,7 +45,7 @@ endif
 ifeq ($(PLATFORM),$(or x11,xorg))
 	LDFLAGS  += -lxcb -lxcb-xfixes
 	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_XORG=1 -DPLATFORM_UNIX=0
-	TARGET   := $(TARGET)-$(PLATFORM)
+	TARGET   := $(TARGET)-xorg
 endif
 
 ifeq ($(PLATFORM),wayland)

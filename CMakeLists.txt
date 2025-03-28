@@ -68,10 +68,16 @@ message(STATUS "=================")
 
 if(PLATFORM_WAYLAND)
 	target_link_libraries(${TARGET_NAME} PUBLIC -lwayland-client)
+	add_definitions(-DPLATFORM_UNIX=0)
+	add_definitions(-DPLATFORM_XORG=0)
 elseif(PLATFORM_XORG)
         target_link_libraries(${TARGET_NAME} PUBLIC -lxcb -lxcb-xfixes)
+	add_definitions(-DPLATFORM_UNIX=0)
+	add_definitions(-DPLATFORM_WAYLAND=0)
 else()
-	add_definitions(-DPLATOFORM_UNIX=1)
+	add_definitions(-DPLATFORM_UNIX=1)
+	add_definitions(-DPLATFORM_XORG=0)
+	add_definitions(-DPLATFORM_WAYLAND=0)
 endif()
 
 # ncurses
