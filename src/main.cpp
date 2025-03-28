@@ -37,7 +37,7 @@
 #include "util.hpp"
 
 #include "clipboard/ClipboardListener.hpp"
-#if PLATFORM_XORG
+#if PLATFORM_X11
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 #include <xcb/xproto.h>
 #elif PLATFORM_WAYLAND
@@ -499,7 +499,7 @@ int main(int argc, char* argv[])
     }
 
 #if !PLATFORM_UNIX
-    #if PLATFORM_XORG
+    #if PLATFORM_X11
         CClipboardListenerX11 clipboardListener;
         clipboardListener.AddCopyCallback(CopyCallback);
         clipboardListener.AddCopyCallback(CopyEntry);

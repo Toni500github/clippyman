@@ -1,18 +1,20 @@
-#include <cstdint>
-#if PLATFORM_XORG
+#if PLATFORM_X11
 
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
+#include <cstdint>
 #include <string>
 
 #include "config.hpp"
 #include "EventData.hpp"
 #include "util.hpp"
 
-static xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
+namespace {
+
+xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
 {
     xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connection, 0, name.size(), name.c_str());
     xcb_intern_atom_reply_t* reply  = xcb_intern_atom_reply(connection, cookie, NULL);
@@ -21,6 +23,8 @@ static xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
         die("Failed to get atom with name \"{}\"", name);
 
     return reply->atom;
+}
+
 }
 
 CClipboardListenerX11::CClipboardListenerX11()
@@ -65,7 +69,7 @@ void CClipboardListenerX11::PollClipboard()
 {
     /* Request the clipboard contents */
     xcb_convert_selection(m_XCBConnection, m_Window, m_Clipboard, m_UTF8String, m_ClipboardProperty,
-                          XCB_TIME_CURRENT_TIME);
+                          XCB_CURRENT_TIME);
     xcb_flush(m_XCBConnection);
 
     xcb_generic_event_t* event = xcb_wait_for_event(m_XCBConnection);
@@ -109,8 +113,9 @@ void CClipboardListenerX11::PollClipboard()
 
     end:
         free(propertyReply);
-        free(event);
     }
+
+    free(event);
 }
 
-#endif  // PLATFORM_XORG
+#endif  // PLATFORM_X11

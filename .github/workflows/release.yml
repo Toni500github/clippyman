@@ -67,7 +67,7 @@ jobs:
         name: clippyman-wayland
         path: ./clippyman-wayland
 
-  build-xorg:
+  build-x11:
     runs-on: ubuntu-20.04
 
     steps:
@@ -83,13 +83,13 @@ jobs:
       run: make clean
 
     - name: Compile
-      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=xorg && mv ./build/release/clippyman-xorg ./
+      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=x11 && mv ./build/release/clippyman-x11 ./
 
     - name: Upload to github artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: clippyman-xorg
-        path: ./clippyman-xorg
+        name: clippyman-x11
+        path: ./clippyman-x11
 
         
   release:
@@ -147,6 +147,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.release-url }}
-          asset_path: clippyman-xorg/clippyman-xorg
-          asset_name: clippyman-xorg
+          asset_path: clippyman-x11/clippyman-x11
+          asset_name: clippyman-x11
           asset_content_type: application/x-pie-executable
