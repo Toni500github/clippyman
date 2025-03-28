@@ -66,6 +66,10 @@ add_option(PLATFORM_XORG "Build clippyman for X11" 0)
 add_option(VARS "Add additional flags to CXXFLAGS" "")
 message(STATUS "=================")
 
+if(PLATFORM_WAYLAND AND PLATFORM_XORG)
+	message(FATAL_ERROR "You need to choose either -DPLATFORM_XORG or -DPLATFORM_WAYLAND")
+endif()
+
 if(PLATFORM_WAYLAND)
 	target_link_libraries(${TARGET_NAME} PUBLIC -lwayland-client)
 	add_definitions(-DPLATFORM_UNIX=0)
