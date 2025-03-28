@@ -43,6 +43,54 @@ jobs:
         name: clippyman-unix
         path: ./clippyman
 
+  build-wayland:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Packages
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update && sudo apt upgrade -y
+        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config libxcb1-dev -y
+
+    - name: Clean
+      run: make clean
+
+    - name: Compile
+      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=wayland && mv ./build/release/clippyman-wayland ./
+
+    - name: Upload to github artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: clippyman-wayland
+        path: ./clippyman-wayland
+
+  build-xorg:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Packages
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update && sudo apt upgrade -y
+        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config libxcb1-dev -y
+
+    - name: Clean
+      run: make clean
+
+    - name: Compile
+      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=xorg && mv ./build/release/clippyman-xorg ./
+
+    - name: Upload to github artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: clippyman-xorg
+        path: ./clippyman-xorg
+
         
   release:
     name: Create GitHub Release
@@ -83,4 +131,22 @@ jobs:
           upload_url: ${{ needs.release.outputs.release-url }}
           asset_path: clippyman-unix/clippyman
           asset_name: clippyman
+          asset_content_type: application/x-pie-executable
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.release-url }}
+          asset_path: clippyman-wayland/clippyman-wayland
+          asset_name: clippyman-wayland
+          asset_content_type: application/x-pie-executable
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.release-url }}
+          asset_path: clippyman-xorg/clippyman-xorg
+          asset_name: clippyman-xorg
           asset_content_type: application/x-pie-executable
