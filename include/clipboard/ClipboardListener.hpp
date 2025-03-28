@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "EventData.hpp"
+#include "config.hpp"
 #include "util.hpp"
 
 /* The base class for ClipboardListeners, Keep in mind this is not supposed to be used directly.
@@ -27,8 +28,11 @@ public:
      */
     virtual void CopyToClipboard(const std::string& str) const
     {
-        info("NOT yet implemented copy to clipboard in here, only X11.\n"
-             "Printing the selected content:\n{}", str);
+        if (!config.silent)
+            info("NOT yet implemented copy to clipboard in here, only X11.\n"
+                 "Printing the selected content:");
+        fmt::print("{}", str);
+        fmt::print("\n");
     }
 };
 

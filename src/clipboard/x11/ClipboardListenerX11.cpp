@@ -181,7 +181,8 @@ void CClipboardListenerX11::CopyToClipboard(const std::string& str) const
     // set our window as the selection owner
     xcb_set_selection_owner(m_XCBConnection, m_Window, selection, XCB_CURRENT_TIME);
     xcb_flush(m_XCBConnection);
-    info("Copied to clipboard!");
+    if (!config.silent)
+        info("Copied to clipboard!");
 
     // run the task in the background, waiting for any event
     pid_t pid = fork();

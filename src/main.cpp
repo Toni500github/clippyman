@@ -77,6 +77,7 @@ R"(Usage: clippyman [OPTIONS]...
     -i, --input                 Enter in terminal input mode
     -p, --path <path>           Path to where we'll search/save the clipboard history
     -P, --primary [<bool>]      Use the primary clipboard instead
+    -S, --silent [<bool>]       Print or Not an info message along the search content you selected
     --wl-seat <name>            The seat for using in wayland (just leave it empty if you don't know what's this)
     -s, --search                Delete/Search clipboard history. At the moment is not possible to search UTF-8 characters
                                 Press TAB to switch beetwen search bar and clipboard history.
@@ -408,20 +409,21 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
     int opt               = 0;
     int option_index      = 0;
     opterr                = 1;  // re-enable since before we disabled for "invalid option" error
-    const char* optstring = "-Vhisp:C:P::";
+    const char* optstring = "-Vhisp:C:P::S::";
 
     // clang-format off
     static const struct option opts[] = {
-        {"version",    no_argument,       0, 'V'},
-        {"help",       no_argument,       0, 'h'},
-        {"input",      no_argument,       0, 'i'},
-        {"search",     no_argument,       0, 's'},
+        {"version",     no_argument,       0, 'V'},
+        {"help",        no_argument,       0, 'h'},
+        {"input",       no_argument,       0, 'i'},
+        {"search",      no_argument,       0, 's'},
 
-        {"path",       required_argument, 0, 'p'},
-        {"config",     required_argument, 0, 'C'},
-        {"primary",    optional_argument, 0, 'P'},
-        {"wl-seat",    required_argument, 0, 6968},
-        {"gen-config", optional_argument, 0, 6969},
+        {"path",        required_argument, 0, 'p'},
+        {"config",      required_argument, 0, 'C'},
+        {"primary",     optional_argument, 0, 'P'},
+        {"wl-seat",     required_argument, 0, 6967},
+        {"gen-config",  optional_argument, 0, 6968},
+        {"silent",      optional_argument, 0, 6969},
 
         {0,0,0,0}
     };
@@ -449,6 +451,13 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
                     config.primary_clip = str_to_bool(optarg);
                 else
                     config.primary_clip = true;
+                break;
+
+            case 'S':
+                if (OPTIONAL_ARGUMENT_IS_PRESENT)
+                    config.silent = str_to_bool(optarg);
+                else
+                    config.silent = true;
                 break;
 
             case 6969:
@@ -485,7 +494,7 @@ int main(int argc, char* argv[])
 
     bool piped = !isatty(STDIN_FILENO);
     // debug("piped = {}", piped);
-    if (piped || PLATFORM_UNIX || config.arg_terminal_input)
+    if (!config.arg_search && (piped || PLATFORM_UNIX || config.arg_terminal_input))
     {
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
 
