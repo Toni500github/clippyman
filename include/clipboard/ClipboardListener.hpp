@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "EventData.hpp"
+#include "util.hpp"
 
 /* The base class for ClipboardListeners, Keep in mind this is not supposed to be used directly.
  * If you want a functional CClipboardListener instance, use GetAppropriateClipboardListener().
@@ -20,6 +21,15 @@ public:
      * Poll for clipboard events, depending on the windowing system this MAY block.
      */
     virtual void PollClipboard() = 0;
+
+    /*
+     * Copy the content into the clipboard
+     */
+    virtual void CopyToClipboard(const std::string& str) const
+    {
+        info("NOT yet implemented copy to clipboard in here, only X11.\n"
+             "Printing the selected content:\n{}", str);
+    }
 };
 
 #endif

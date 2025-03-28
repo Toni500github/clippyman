@@ -14,12 +14,11 @@ public:
     CClipboardListenerX11();
     ~CClipboardListenerX11();
 
-    /*
-     * Registers a callback for when the user copies something.
-     */
     void AddCopyCallback(const std::function<void(const CopyEvent&)>& func) override;
 
     void PollClipboard() override;
+
+    void CopyToClipboard(const std::string& str) const override;
 
 private:
     std::vector<std::function<void(const CopyEvent&)>> m_CopyEventCallbacks;
