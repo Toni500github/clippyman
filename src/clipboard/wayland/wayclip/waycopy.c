@@ -19,7 +19,7 @@ bool running = true;
 void
 data_source_send(void *data, struct zwlr_data_control_source_v1 *source, const char *mime_type, int32_t fd)
 {
-	lseek(temp, SEEK_SET, 0);
+	lseek(temp, 0, SEEK_SET);
 
 	copyfd(fd, temp);
 	close(fd);
@@ -29,6 +29,8 @@ void
 data_source_cancelled(void *data, struct zwlr_data_control_source_v1 *source)
 {
 	running = 0;
+        zwlr_data_control_source_v1_destroy(source);
+        close(temp);
 }
 
 static const struct zwlr_data_control_source_v1_listener data_source_listener = {
@@ -96,3 +98,5 @@ main_waycopy(struct wl_display *display, struct wc_options options)
 
 	return running;
 }
+
+// vim:shiftwidth=8
