@@ -41,7 +41,7 @@ static const struct zwlr_data_control_source_v1_listener data_source_listener = 
 const char *const tempname = "/waycopy-buffer-XXXXXX";
 
 int
-main_waycopy(struct wl_display *display, struct wc_options options)
+main_waycopy(struct wl_display *display, struct wc_options options, const int fd)
 {
 	char path[PATH_MAX] = {0};
 	char *ptr = getenv("TMPDIR");
@@ -61,8 +61,8 @@ main_waycopy(struct wl_display *display, struct wc_options options)
 
 	if (unlink(path) == -1)
 		wc_die("failed to remove temporary file");
-	copyfd(STDIN_FILENO, temp);
-	close(STDIN_FILENO);
+	copyfd(fd, temp);
+	close(fd);
 
         registry = wl_display_get_registry(display);
 	if (registry == NULL)
