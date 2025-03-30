@@ -2,17 +2,17 @@
 #define PLATFORM_UNIX 0
 #endif
 
-#define _POSIX_C_SOURCE 2 // getopt
+#define _POSIX_C_SOURCE 2  // getopt
 #include <getopt.h>
 #include <ncurses.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cctype>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -23,6 +23,7 @@
 #endif
 
 #include "EventData.hpp"
+#include "clipboard/ClipboardListener.hpp"
 #include "clipboard/unix/ClipboardListenerUnix.hpp"
 #include "config.hpp"
 #include "fmt/base.h"
@@ -36,11 +37,10 @@
 #include "rapidjson/rapidjson.h"
 #include "utf8.h"
 #include "util.hpp"
-
-#include "clipboard/ClipboardListener.hpp"
 #if PLATFORM_X11
-#include "clipboard/x11/ClipboardListenerX11.hpp"
 #include <xcb/xproto.h>
+
+#include "clipboard/x11/ClipboardListenerX11.hpp"
 #elif PLATFORM_WAYLAND
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
 extern "C" {
@@ -61,8 +61,9 @@ extern "C" {
 // include/config.hpp
 Config config;
 // src/box.cpp
-void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width, const size_t max_visible,
-                     const size_t selected, const size_t scroll_offset, const size_t cursor_x, bool is_search_tab);
+void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width,
+                     const size_t max_visible, const size_t selected, const size_t scroll_offset, const size_t cursor_x,
+                     bool is_search_tab);
 void delete_draw_confirm(const int seloption);
 
 static void version()
@@ -161,7 +162,8 @@ void CopyEntry(const CopyEvent& event)
     char                                                writeBuffer[UINT16_MAX] = { 0 };
     rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
     rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
-    fileWriter.SetFormatOptions(rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
+    fileWriter.SetFormatOptions(
+        rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
     doc.Accept(fileWriter);
 
     fflush(file);
@@ -189,7 +191,7 @@ R"({
     f.close();
 }
 
-#define SEARCH_TITLE_LEN (2 + 8) // 2 for box border, 8 for "Search: "
+#define SEARCH_TITLE_LEN (2 + 8)  // 2 for box border, 8 for "Search: "
 int search_algo(const CClipboardListener& clipboardListener, const Config& config)
 {
 restart:
@@ -231,8 +233,8 @@ restart:
     draw_search_box(query, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 
-    bool   del          = false;
-    bool   del_selected = false;
+    bool del          = false;
+    bool del_selected = false;
     while ((ch = getch()) != ERR)
     {
         if (!del && ch == 27)  // ESC
@@ -244,7 +246,7 @@ restart:
         }
         else if (is_search_tab)
         {
-            del = false;
+            del         = false;
             bool erased = false;
             if (ch == KEY_BACKSPACE || ch == 127)
             {
@@ -254,9 +256,11 @@ restart:
                     if (cursor_x > SEARCH_TITLE_LEN)
                         query.erase(--cursor_x - SEARCH_TITLE_LEN, 1);
 
-                    erased = true;
+                    erased  = true;
                     results = entries_value;
-                    results.erase(std::remove_if(results.begin(), results.end(), [&](const std::string& s){return !hasStart(s, query);}), results.end());
+                    results.erase(std::remove_if(results.begin(), results.end(),
+                                                 [&](const std::string& s) { return !hasStart(s, query); }),
+                                  results.end());
                 }
             }
             else if (ch == KEY_LEFT)
@@ -284,7 +288,9 @@ restart:
                 scroll_offset = 0;
 
                 results = entries_value;
-                results.erase(std::remove_if(results.begin(), results.end(), [&](const std::string& s){return !hasStart(s, query);}), results.end());
+                results.erase(std::remove_if(results.begin(), results.end(),
+                                             [&](const std::string& s) { return !hasStart(s, query); }),
+                              results.end());
             }
         }
         else
@@ -343,7 +349,8 @@ restart:
                 char                                                writeBuffer[UINT16_MAX] = { 0 };
                 rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
                 rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
-                fileWriter.SetFormatOptions(rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
+                fileWriter.SetFormatOptions(
+                    rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
                 doc.Accept(fileWriter);
                 fflush(file);
                 ftruncate(fileno(file), ftell(file));
@@ -364,9 +371,9 @@ restart:
         if (del)
             delete_draw_confirm(del_selected);
         else
-            draw_search_box(query, (query.empty() ? entries_value : results), max_width, max_visible,
-                            selected, scroll_offset, cursor_x, is_search_tab);
-        
+            draw_search_box(query, (query.empty() ? entries_value : results), max_width, max_visible, selected,
+                            scroll_offset, cursor_x, is_search_tab);
+
         curs_set(is_search_tab);
     }
 
@@ -374,12 +381,12 @@ restart:
     return 0;
 }
 
+// clang-format off
 static bool str_to_bool(const std::string_view str)
 {
     return (str == "true" || str == "1" || str == "enable");
 }
 
-// clang-format off
 // parseargs() but only for parsing the user config path trough args
 // and so we can directly construct Config
 static std::string parse_config_path(int argc, char* argv[], const std::string& configDir)

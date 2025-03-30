@@ -9,7 +9,7 @@
 class CClipboardListenerUnix : public CClipboardListener
 {
 public:
-    CClipboardListenerUnix() = default;
+    CClipboardListenerUnix()  = default;
     ~CClipboardListenerUnix() = default;
 
     /*

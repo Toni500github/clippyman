@@ -30,9 +30,9 @@ public:
     {
         if (!config.silent)
         {
-        #if !PLATFORM_UNIX
+#if !PLATFORM_UNIX
             info("NOT yet implemented copy to clipboard in here, only X11.");
-        #endif
+#endif
             info("Printing the selected content:");
         }
         fmt::print("{}", str);

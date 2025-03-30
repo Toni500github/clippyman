@@ -13,7 +13,7 @@
 std::string in()
 {
     std::vector<std::string> lines;
-    std::string line;
+    std::string              line;
 
     while (std::getline(std::cin, line))
     {
@@ -36,7 +36,7 @@ void CClipboardListenerUnix::AddCopyCallback(const std::function<void(const Copy
 
 void CClipboardListenerUnix::PollClipboard()
 {
-    CopyEvent copyEvent{in()};
+    CopyEvent copyEvent{ in() };
     if (copyEvent.content == m_LastClipboardContent)
         return;
 

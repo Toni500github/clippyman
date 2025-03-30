@@ -2,6 +2,7 @@
 #define _UTIL_HPP_
 
 #include <iostream>
+
 #include "fmt/base.h"
 #include "fmt/color.h"
 
@@ -14,7 +15,7 @@ bool hasStart(const std::string_view fullString, const std::string_view start);
 
 /* Write error message and exit if EOF (or CTRL-D most of the time)
  * @param cin The std::cin used for getting the input
- */ 
+ */
 void ctrl_d_handler(const std::istream& cin);
 
 /* Replace special symbols such as ~ and $ (at the begging) in std::string
@@ -38,7 +39,6 @@ std::string getHomeConfigDir();
  * @return customfetch's config directory
  */
 std::string getConfigDir();
-
 
 #define BOLD_COLOR(x) (fmt::emphasis::bold | fmt::fg(x))
 
@@ -90,7 +90,7 @@ template <typename... Args>
 bool askUserYorN(bool def, const std::string_view fmt, Args&&... args)
 {
     const std::string& inputs_str = fmt::format(" [{}]: ", def ? "Y/n" : "y/N");
-    std::string result;
+    std::string        result;
     fmt::print(fmt::runtime(fmt), std::forward<Args>(args)...);
     fmt::print("{}", inputs_str);
 
@@ -107,6 +107,5 @@ bool askUserYorN(bool def, const std::string_view fmt, Args&&... args)
 
     return !def;
 }
-
 
 #endif  // !_UTIL_HPP_
