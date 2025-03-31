@@ -30,8 +30,8 @@ public:
     {
         if (!config.silent)
         {
-#if !PLATFORM_UNIX
-            info("NOT yet implemented copy to clipboard in here, only X11.");
+#if !PLATFORM_X11
+            warn("NOT yet implemented copy to clipboard in here, only X11.");
 #endif
             info("Printing the selected content:");
         }

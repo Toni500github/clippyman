@@ -16,6 +16,7 @@ public:
 
     bool arg_search         = false;
     bool arg_terminal_input = false;
+    bool arg_copy_input     = false;
 
     std::string path;
     std::string wl_seat;

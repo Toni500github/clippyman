@@ -76,12 +76,13 @@ static void help(bool invalid_opt = false)
 {
     constexpr std::string_view help =
 R"(Usage: clippyman [OPTIONS]...
-    -i, --input                 Enter in terminal input mode
+    -i, --input                 Save input text from stdin (pipes) or by typing
+    -c, --copy                  Copy the input from stdin into the clipboard (x11 only)
     -p, --path <path>           Path to where we'll search/save the clipboard history
     -P, --primary [<bool>]      Use the primary clipboard instead
     -S, --silent [<bool>]       Print or Not an info message along the search content you selected
     --wl-seat <name>            The seat for using in wayland (just leave it empty if you don't know what's this)
-    -s, --search                Delete/Search clipboard history. At the moment is not possible to search UTF-8 characters
+    -s, --search                Delete/Search clipboard history.
                                 Press TAB to switch beetwen search bar and clipboard history.
                                 In clipboard history: press 'd' for delete, press enter for output selected text
 
@@ -424,7 +425,7 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
     int opt               = 0;
     int option_index      = 0;
     opterr                = 1;  // re-enable since before we disabled for "invalid option" error
-    const char* optstring = "-Vhisp:C:P::S::";
+    const char* optstring = "-Vhiscp:C:P::S::";
 
     // clang-format off
     static const struct option opts[] = {
@@ -432,13 +433,14 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
         {"help",        no_argument,       0, 'h'},
         {"input",       no_argument,       0, 'i'},
         {"search",      no_argument,       0, 's'},
+        {"copy",        no_argument,       0, 'c'},
 
+        {"primary",     optional_argument, 0, 'P'},
+        {"silent",      optional_argument, 0, 'S'},
         {"path",        required_argument, 0, 'p'},
         {"config",      required_argument, 0, 'C'},
-        {"primary",     optional_argument, 0, 'P'},
-        {"wl-seat",     required_argument, 0, 6967},
-        {"gen-config",  optional_argument, 0, 6968},
-        {"silent",      optional_argument, 0, 6969},
+        {"wl-seat",     required_argument, 0, 6968},
+        {"gen-config",  optional_argument, 0, 6969},
 
         {0,0,0,0}
     };
@@ -458,6 +460,7 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
             case 'p':  config.path = optarg; break;
             case 's':  config.arg_search = true; break;
             case 'i':  config.arg_terminal_input = true; break;
+            case 'c':  config.arg_copy_input = true; break;
             case 6968: config.wl_seat = optarg;
             case 'C':  break;  // we have already did it in parse_config_path()
 
@@ -502,22 +505,33 @@ int main(int argc, char* argv[])
     CreateInitialCache(config.path);
     setlocale(LC_ALL, "");
 
-    if (config.arg_search && config.arg_terminal_input)
-        die("Please only use either --search or --input");
+    if ((config.arg_search && config.arg_terminal_input) ||
+        (config.arg_search && config.arg_copy_input))
+        die("Please only use either --search or --input/--copy");
 
     CClipboardListenerUnix clipboardListenerUnix;
 
     bool piped = !isatty(STDIN_FILENO);
-    // debug("piped = {}", piped);
+    bool gotstdin = false;
     if (!config.arg_search && (piped || PLATFORM_UNIX || config.arg_terminal_input))
     {
+    #if !PLATFORM_X11
+        if (config.arg_copy_input)
+        {
+            warn("NOT yet implemented copy to clipboard in here, only X11.");
+            return EXIT_FAILURE;
+        }
+    #endif
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
 
         if (!piped)
             info("Type or Paste the text to save in the clipboard history, then press enter and CTRL+D to save and exit");
 
         clipboardListenerUnix.PollClipboard();
+        gotstdin = true;
+    #if !PLATFORM_X11
         return EXIT_SUCCESS;
+    #endif
     }
 
 #if !PLATFORM_UNIX
@@ -539,6 +553,24 @@ int main(int argc, char* argv[])
 
     if (config.arg_search)
         return search_algo(clipboardListener, config);
+
+    if (config.arg_copy_input)
+    {
+    #if !PLATFORM_X11
+        warn("NOT yet implemented copy to clipboard in here, only X11.");
+        return EXIT_FAILURE;
+    #endif
+        if (!gotstdin)
+        {
+            info("Type or Paste the text to copy into the clipboard, then press enter and CTRL+D to save and exit");
+            clipboardListener.CopyToClipboard(getin());
+        }
+        else
+        {
+            clipboardListener.CopyToClipboard(clipboardListenerUnix.getLastClipboardContent());
+        }
+        return EXIT_SUCCESS;
+    }
 
     while (true)
     {

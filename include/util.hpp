@@ -25,6 +25,11 @@ void ctrl_d_handler(const std::istream& cin);
  */
 std::string expandVar(std::string ret, bool dont = false);
 
+/* Get input from stdin (std::cin)
+ * @return The input from stdin (std::cin)
+ */
+std::string getin();
+
 /*
  * Get the user config directory
  * either from $XDG_CONFIG_HOME or from $HOME/.config/

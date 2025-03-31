@@ -19,6 +19,9 @@ public:
 
     void PollClipboard() override;
 
+    std::string getLastClipboardContent()
+    { return m_LastClipboardContent; }
+
 private:
     std::vector<std::function<void(const CopyEvent&)>> m_CopyEventCallbacks;
 
