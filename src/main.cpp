@@ -163,8 +163,7 @@ void CopyEntry(const CopyEvent& event)
     char                                                writeBuffer[UINT16_MAX] = { 0 };
     rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
     rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
-    fileWriter.SetFormatOptions(
-        rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
+    fileWriter.SetFormatOptions(rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
     doc.Accept(fileWriter);
 
     fflush(file);
@@ -192,9 +191,31 @@ R"({
     f.close();
 }
 
+static void removeEntries(std::vector<std::string>& results_value, std::vector<std::string>& results_id,
+                          const std::string& query)
+{
+    auto it_id = results_id.begin();
+
+    auto new_end = std::remove_if(results_value.begin(), results_value.end(), [&](const std::string& s) {
+        bool remove = !hasStart(s, query);
+        if (remove)
+            it_id = results_id.erase(it_id);
+        else
+            ++it_id;
+        return remove;
+    });
+
+    results_value.erase(new_end, results_value.end());
+}
+
 #define SEARCH_TITLE_LEN (2 + 8)  // 2 for box border, 8 for "Search: "
 int search_algo(const CClipboardListener& clipboardListener, const Config& config)
 {
+    initscr();
+    noecho();
+    cbreak();              // Enable immediate character input
+    keypad(stdscr, TRUE);  // Enable arrow keys
+
 restart:
     FILE*                     file = fopen(config.path.c_str(), "r+");
     rapidjson::Document       doc;
@@ -204,23 +225,18 @@ restart:
     if (doc.ParseStream(stream).HasParseError())
     {
         fclose(file);
+        endwin();
         die("Failed to parse {}: {} at offset {}", config.path, rapidjson::GetParseError_En(doc.GetParseError()),
             doc.GetErrorOffset());
     }
 
-    initscr();
-    noecho();
-    cbreak();              // Enable immediate character input
-    keypad(stdscr, TRUE);  // Enable arrow keys
-
-    std::vector<std::string> entries_id, entries_value, results, results_id;
+    std::vector<std::string> entries_id, entries_value;
     for (auto it = doc["entries"].MemberBegin(); it != doc["entries"].MemberEnd(); ++it)
     {
         entries_id.push_back(it->name.GetString());
         entries_value.push_back(it->value.GetString());
-        results_id.push_back(it->name.GetString());
-        results.push_back(it->value.GetString());
     }
+    std::vector<std::string> results(entries_value), results_id(entries_id);
 
     std::string query;
     int         ch            = 0;
@@ -257,11 +273,10 @@ restart:
                     if (cursor_x > SEARCH_TITLE_LEN)
                         query.erase(--cursor_x - SEARCH_TITLE_LEN, 1);
 
-                    erased  = true;
-                    results = entries_value;
-                    results.erase(std::remove_if(results.begin(), results.end(),
-                                                 [&](const std::string& s) { return !hasStart(s, query); }),
-                                  results.end());
+                    erased     = true;
+                    results    = entries_value;
+                    results_id = entries_id;
+                    removeEntries(results, results_id, query);
                 }
             }
             else if (ch == KEY_LEFT)
@@ -288,14 +303,12 @@ restart:
                 selected      = 0;
                 scroll_offset = 0;
 
-                results = entries_value;
-                results.erase(std::remove_if(results.begin(), results.end(),
-                                             [&](const std::string& s) { return !hasStart(s, query); }),
-                              results.end());
+                removeEntries(results, results_id, query);
             }
         }
         else
         {
+            // go up
             if (ch == KEY_DOWN || ch == KEY_RIGHT)
             {
                 if (del)
@@ -308,6 +321,7 @@ restart:
                         ++scroll_offset;
                 }
             }
+            // go down
             else if (ch == KEY_UP || ch == KEY_LEFT)
             {
                 if (del)
@@ -325,10 +339,12 @@ restart:
                         --scroll_offset;
                 }
             }
+            // pressed 'd' and operation delete is false
             else if (ch == 'd' && !del)
             {
                 del = true;
             }
+            // operation delete and choose "yes"
             else if (del && ch == '\n' && del_selected)
             {
                 del          = false;
@@ -353,14 +369,16 @@ restart:
                 fileWriter.SetFormatOptions(
                     rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
                 doc.Accept(fileWriter);
-                fflush(file);
                 ftruncate(fileno(file), ftell(file));
+                fflush(file);
                 goto restart;  // yes... let's just restart everything for now
             }
+            // operation delete and pressed 'q' or "no"
             else if (del && (!del_selected || ch == 'q'))
             {
                 del = false;
             }
+            // pressed an item
             else if (ch == '\n' && !results.empty())
             {
                 endwin();
@@ -511,17 +529,17 @@ int main(int argc, char* argv[])
 
     CClipboardListenerUnix clipboardListenerUnix;
 
-    bool piped = !isatty(STDIN_FILENO);
+    bool piped    = !isatty(STDIN_FILENO);
     bool gotstdin = false;
     if (!config.arg_search && (piped || PLATFORM_UNIX || config.arg_terminal_input))
     {
-    #if !PLATFORM_X11
+#if !PLATFORM_X11
         if (config.arg_copy_input)
         {
             warn("NOT yet implemented copy to clipboard in here, only X11.");
             return EXIT_FAILURE;
         }
-    #endif
+#endif
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
 
         if (!piped)
@@ -529,37 +547,37 @@ int main(int argc, char* argv[])
 
         clipboardListenerUnix.PollClipboard();
         gotstdin = true;
-    #if !PLATFORM_X11
+#if !PLATFORM_X11
         return EXIT_SUCCESS;
-    #endif
+#endif
     }
 
 #if !PLATFORM_UNIX
-    #if PLATFORM_X11
-        CClipboardListenerX11 clipboardListener;
-        clipboardListener.AddCopyCallback(CopyCallback);
-        clipboardListener.AddCopyCallback(CopyEntry);
-    #elif PLATFORM_WAYLAND
-        struct wc_options wl_options = {
-            "text/plain;charset=utf-8",
-            config.wl_seat.empty() ? NULL : config.wl_seat.c_str(),
-            false,
-            config.primary_clip
-        };
-        CClipboardListenerWayland clipboardListener(wl_options);
-        clipboardListener.AddCopyCallback(CopyCallback);
-        clipboardListener.AddCopyCallback(CopyEntry);
-    #endif
+#if PLATFORM_X11
+    CClipboardListenerX11 clipboardListener;
+    clipboardListener.AddCopyCallback(CopyCallback);
+    clipboardListener.AddCopyCallback(CopyEntry);
+#elif PLATFORM_WAYLAND
+    struct wc_options wl_options = {
+        "text/plain;charset=utf-8",
+        config.wl_seat.empty() ? NULL : config.wl_seat.c_str(),
+        false,
+        config.primary_clip
+    };
+    CClipboardListenerWayland clipboardListener(wl_options);
+    clipboardListener.AddCopyCallback(CopyCallback);
+    clipboardListener.AddCopyCallback(CopyEntry);
+#endif
 
     if (config.arg_search)
         return search_algo(clipboardListener, config);
 
     if (config.arg_copy_input)
     {
-    #if !PLATFORM_X11
+#if !PLATFORM_X11
         warn("NOT yet implemented copy to clipboard in here, only X11.");
         return EXIT_FAILURE;
-    #endif
+#endif
         if (!gotstdin)
         {
             info("Type or Paste the text to copy into the clipboard, then press enter and CTRL+D to save and exit");
