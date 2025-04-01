@@ -1,6 +1,7 @@
 .POSIX:
+BUILDDIR ?= build/debug
 TARGET = libwayclip.a
-LIB = -lwayland-client
+LIB = -lwayland-client -lwayland-server
 OBJ_COMMON = protocol/wlr-data-control-unstable-v1.o common.o
 
 DEBUG ?= 1

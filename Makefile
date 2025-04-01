@@ -50,9 +50,9 @@ ifeq ($(PLATFORM),$(or x11,xorg))
 endif
 
 ifeq ($(PLATFORM),wayland)
-	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client
+	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client -lwayland-server
 	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_X11=0 -DPLATFORM_UNIX=0
-	TARGET   := $(TARGET)-$(PLATFORM)
+	TARGET   := $(TARGET)-wayland
 endif
 
 ifeq ($(PLATFORM),unix)
