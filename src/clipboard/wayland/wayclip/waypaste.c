@@ -154,15 +154,15 @@ main_waypaste(struct wl_display *display, const int fd)
 	if (seat == NULL)
 		wc_die("failed to bind to seat interface");
 
-	if (data_control_manager->zwlr == NULL || data_control_manager->wl)
+	if (data_control_manager.zwlr == NULL || data_control_manager.wl)
 		wc_die("failed to bind to data_control_manager interface");
 
 	if (pipe(pipes) == -1)
 		wc_die("failed to create pipe");
 
-        if (data_control_manager->zwlr)
+        if (data_control_manager.zwlr)
         {
-                struct zwlr_data_control_device_v1 *device = zwlr_data_control_manager_v1_get_data_device(data_control_manager->zwlr, seat);
+                struct zwlr_data_control_device_v1 *device = zwlr_data_control_manager_v1_get_data_device(data_control_manager.zwlr, seat);
                 if (device == NULL)
 		        wc_die("data device is null");
 
@@ -170,7 +170,7 @@ main_waypaste(struct wl_display *display, const int fd)
         }
         else
         {
-                struct wl_data_device *device = wl_data_device_manager_get_data_device(data_control_manager->wl, seat);
+                struct wl_data_device *device = wl_data_device_manager_get_data_device(data_control_manager.wl, seat);
                 if (device == NULL)
 		        wc_die("data device is null");
 
