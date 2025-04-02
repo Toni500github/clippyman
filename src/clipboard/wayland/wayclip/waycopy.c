@@ -101,16 +101,16 @@ main_waycopy(struct wl_display *display, struct wc_options options, const int fd
 	if (seat == NULL)
 		wc_die("failed to bind to seat interface");
 
-	if (data_control_manager.zwlr == NULL || data_control_manager.wl == NULL)
+	if (data_control_manager->zwlr == NULL || data_control_manager->wl == NULL)
 		wc_die("failed to bind to data_control_manager interface");
 
-        if (data_control_manager.zwlr)
+        if (data_control_manager->zwlr)
         {
-                struct zwlr_data_control_device_v1 *device = zwlr_data_control_manager_v1_get_data_device(data_control_manager.zwlr, seat);
+                struct zwlr_data_control_device_v1 *device = zwlr_data_control_manager_v1_get_data_device(data_control_manager->zwlr, seat);
                 if (device == NULL)
 		        wc_die("data device is null");
 
-                struct zwlr_data_control_source_v1 *source = zwlr_data_control_manager_v1_create_data_source(data_control_manager.zwlr);
+                struct zwlr_data_control_source_v1 *source = zwlr_data_control_manager_v1_create_data_source(data_control_manager->zwlr);
                 if (source == NULL)
 		        wc_die("source device is null");
 
@@ -123,11 +123,11 @@ main_waycopy(struct wl_display *display, struct wc_options options, const int fd
         }
         else
         {
-                struct wl_data_device *device = wl_data_device_manager_get_data_device(data_control_manager.wl, seat);
+                struct wl_data_device *device = wl_data_device_manager_get_data_device(data_control_manager->wl, seat);
                 if (device == NULL)
 		        wc_die("data device is null");
 
-                struct wl_data_source *source = wl_data_device_manager_create_data_source(data_control_manager.wl);
+                struct wl_data_source *source = wl_data_device_manager_create_data_source(data_control_manager->wl);
                 if (source == NULL)
 		        wc_die("source device is null");
 

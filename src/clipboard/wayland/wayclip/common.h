@@ -15,7 +15,7 @@ struct data_control_manager_t {
 };
 
 extern struct wl_seat *seat;
-extern struct data_control_manager_t data_control_manager;
+extern struct data_control_manager_t *data_control_manager;
 extern const struct wl_registry_listener registry_listener;
 
 extern struct wc_options {
