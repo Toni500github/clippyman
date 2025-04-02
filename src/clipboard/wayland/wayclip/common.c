@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wayland-client.h>
 
 #include "protocol/wlr-data-control-unstable-v1-client-protocol.h"
 #include "common.h"
@@ -10,7 +11,7 @@
 static bool seat_found = false;
 
 struct wl_seat *seat;
-struct data_control_manager_t *data_control_manager;
+struct zwlr_data_control_manager_v1 *data_control_manager;
 
 struct wc_options options = {
 	.type = "text/plain;charset=utf-8",
@@ -44,13 +45,9 @@ registry_global(void *data, struct wl_registry *registry, uint32_t name, const c
 			wl_seat_add_listener(seat, &seat_listener, NULL);
 			seat = NULL;
 		} else seat_found = true;
-        // zwlr v1
 	} else if (strcmp(interface, "zwlr_data_control_manager_v1") == 0) {
-		data_control_manager->zwlr = wl_registry_bind(registry, name, &zwlr_data_control_manager_v1_interface, 2);
-        // wayland
-	} else if (strcmp(interface, "wl_data_device_manager") == 0) {
-                data_control_manager->wl = wl_registry_bind(registry, name, &wl_data_device_manager_interface, 2);
-        }
+		data_control_manager = wl_registry_bind(registry, name, &zwlr_data_control_manager_v1_interface, 2);
+	}
 }
 
 void
