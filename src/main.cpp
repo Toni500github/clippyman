@@ -34,12 +34,9 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/filewritestream.h"
 #include "rapidjson/prettywriter.h"
-#include "rapidjson/rapidjson.h"
-#include "utf8.h"
 #include "util.hpp"
 #if PLATFORM_X11
 #include <xcb/xproto.h>
-
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 #elif PLATFORM_WAYLAND
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
@@ -130,37 +127,6 @@ void CopyEntry(const CopyEvent& event)
     rapidjson::Value                  value_content(event.content.c_str(), event.content.size(), allocator);
     doc["entries"].AddMember(id_ref, value_content, allocator);
 
-    // iterate through the new entry and set the ID of where they could be found
-    // along an array of its characters indexes
-    unsigned int i = 0;
-    for (const char* ptr = event.content.c_str(); *ptr; ++i)
-    {
-        char utf8_char[5] = { 0 };  // UTF-8 characters are max 4 bytes + null terminator
-        int  codepoint;
-        ptr = utf8codepoint(ptr, &codepoint);
-        utf8catcodepoint(utf8_char, codepoint, sizeof(utf8_char));
-
-        std::string      ch_str(utf8_char);
-        rapidjson::Value key;
-        key.SetString(ch_str.c_str(), ch_str.length(), allocator);
-
-        if (doc["index"].HasMember(key))
-        {
-            if (!doc["index"][key].HasMember(id_ref))
-                doc["index"][key].AddMember(id_ref, rapidjson::kArrayType, allocator);
-
-            doc["index"][key][id_ref.s].PushBack(i, allocator);
-        }
-        else
-        {
-            rapidjson::Value array(rapidjson::kArrayType);
-            array.PushBack(i, allocator);
-            rapidjson::Value obj(rapidjson::kObjectType);
-            obj.AddMember(id_ref, array, allocator);
-            doc["index"].AddMember(key, obj, allocator);
-        }
-    }
-
     // seek back to the beginning to overwrite
     fseek(file, 0, SEEK_SET);
 
@@ -182,8 +148,7 @@ void CreateInitialCache(const std::string& path)
 
     constexpr std::string_view json =
 R"({
-    "entries": {},
-    "index": {}
+    "entries": {}
 })";
 
     const size_t pos = path.rfind('/');
@@ -377,9 +342,6 @@ restart:
                 entries_value.clear();
 
                 doc["entries"].EraseMember(results_id[selected].c_str());
-                // {"c":{"0": [1,3,7]}}
-                for (auto it = doc["index"].MemberBegin(); it != doc["index"].MemberEnd(); ++it)
-                    doc["index"][it->name.GetString()].EraseMember(results_id[selected].c_str());
                 results_id.clear();
 
                 selected      = 0;
