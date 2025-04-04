@@ -118,16 +118,20 @@ void CopyEntry(const CopyEvent& event)
 
     rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
 
-    std::string id_str{ "0" };
+    // add the new entry into entries, and set the id from the previous
+    // incremented id
+    unsigned int id = 0;
     if (!doc["entries"].ObjectEmpty())
     {
         const auto& lastId = (doc["entries"].MemberEnd() - 1)->name;
-        id_str             = fmt::to_string(std::stoi(lastId.GetString()) + 1);
+        id                 = std::stoi(lastId.GetString()) + 1;
     }
-    rapidjson::GenericStringRef<char> id_ref(id_str.c_str());
+    rapidjson::GenericStringRef<char> id_ref(fmt::to_string(id).c_str());
     rapidjson::Value                  value_content(event.content.c_str(), event.content.size(), allocator);
     doc["entries"].AddMember(id_ref, value_content, allocator);
 
+    // iterate through the new entry and set the ID of where they could be found
+    // along an array of its characters indexes
     unsigned int i = 0;
     for (const char* ptr = event.content.c_str(); *ptr; ++i)
     {
@@ -138,7 +142,7 @@ void CopyEntry(const CopyEvent& event)
 
         std::string      ch_str(utf8_char);
         rapidjson::Value key;
-        key.SetString(ch_str.c_str(), static_cast<rapidjson::SizeType>(ch_str.length()), allocator);
+        key.SetString(ch_str.c_str(), ch_str.length(), allocator);
 
         if (doc["index"].HasMember(key))
         {
@@ -166,8 +170,8 @@ void CopyEntry(const CopyEvent& event)
     fileWriter.SetFormatOptions(rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
     doc.Accept(fileWriter);
 
-    fflush(file);
     ftruncate(fileno(file), ftell(file));
+    fflush(file);
     fclose(file);
 }
 
@@ -190,6 +194,25 @@ R"({
     f.print("{}", json);
     f.close();
 }
+
+/*static bool binarySearchJsonArray(const rapidjson::Value& arr, const long int target)
+{
+    long int left = 0, right = arr.Size() - 1;
+    while (left <= right)
+    {
+        int mid = left + (right - left) / 2;
+
+        int midValue = arr[mid].GetUint();
+
+        if (midValue == target)
+            return true;
+        else if (midValue < target)
+            left = mid + 1;
+        else
+            right = mid - 1;
+    }
+    return false;
+}*/
 
 static void removeEntries(std::vector<std::string>& results_value, std::vector<std::string>& results_id,
                           const std::string& query)
@@ -246,7 +269,7 @@ restart:
     bool        is_search_tab = true;
 
     const int max_width   = getmaxx(stdscr) - 5;
-    const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.75;
+    const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.80f;
     draw_search_box(query, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 

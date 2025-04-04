@@ -129,13 +129,13 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
         for (const std::string& line : wrap_text(results[i], max_width - 6))
         {
             if (is_selected && !is_search_tab)
-                attron(A_REVERSE);  // Apply highlight before printing
+                attron(A_REVERSE);
 
             // Print the line with padding (4 spaces)
             mvprintw(row++, 6, "%s", line.c_str());  // 6 for padding (2 + 4 spaces)
 
             if (is_selected && !is_search_tab)
-                attroff(A_REVERSE);  // Remove highlight after printing
+                attroff(A_REVERSE);
         }
 
         items_displayed++;
