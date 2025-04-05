@@ -58,9 +58,9 @@ extern "C" {
 // include/config.hpp
 Config config;
 // src/box.cpp
-void draw_search_box(const std::string& query, const std::vector<std::string>& results, const size_t max_width,
-                     const size_t max_visible, const size_t selected, const size_t scroll_offset, const size_t cursor_x,
-                     bool is_search_tab);
+void draw_search_box(const std::string& query, const std::vector<std::string>& results,
+                     const std::vector<std::string>& results_id, const size_t selected, size_t& scroll_offset,
+                     const size_t cursor_x, const bool is_search_tab);
 void delete_draw_confirm(const int seloption);
 
 static void version()
@@ -235,9 +235,8 @@ restart:
     size_t      cursor_x      = SEARCH_TITLE_LEN;
     bool        is_search_tab = true;
 
-    const int max_width   = getmaxx(stdscr) - 5;
     const int max_visible = ((getmaxy(stdscr) - 3) / 2) * 0.80f;
-    draw_search_box(query, results, max_width, max_visible, selected, scroll_offset, cursor_x, is_search_tab);
+    draw_search_box(query, entries_value, entries_id, selected, scroll_offset, cursor_x, is_search_tab);
     move(1, cursor_x);
 
     bool del          = false;
@@ -375,7 +374,7 @@ restart:
         if (del)
             delete_draw_confirm(del_selected);
         else
-            draw_search_box(query, (query.empty() ? entries_value : results), max_width, max_visible, selected,
+            draw_search_box(query, (query.empty() ? entries_value : results), (query.empty() ? entries_id : results_id), selected,
                             scroll_offset, cursor_x, is_search_tab);
 
         curs_set(is_search_tab);
