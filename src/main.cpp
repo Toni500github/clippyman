@@ -1,8 +1,8 @@
+#define _POSIX_C_SOURCE 2  // getopt
 #ifndef PLATFORM_UNIX
 #define PLATFORM_UNIX 0
 #endif
 
-#define _POSIX_C_SOURCE 2  // getopt
 #include <getopt.h>
 #include <ncurses.h>
 #include <unistd.h>
@@ -77,7 +77,9 @@ R"(Usage: clippyman [OPTIONS]...
     -c, --copy                  Copy the input from stdin into the clipboard (x11 only)
     -p, --path <path>           Path to where we'll search/save the clipboard history
     -P, --primary [<bool>]      Use the primary clipboard instead
-    -S, --silent [<bool>]       Print or Not an info message along the search content you selected
+    -S, --silent               Silence some extra info text, useful for pipes or other operations
+    -e, --get-entry [<id>]      Get an entry string by given ID (0, 24, ...) Not providing an ID will print all the existent entries with their ID
+    -D, --delete-entry [<id>]   DELETE an entry string by given ID (0, 24, ...) Not providing an ID will DELETE all the existent entries
     --wl-seat <name>            The seat for using in wayland (just leave it empty if you don't know what's this)
     -s, --search                Delete/Search clipboard history.
                                 Press TAB to switch beetwen search bar and clipboard history.
@@ -351,8 +353,6 @@ restart:
                 char                                                writeBuffer[UINT16_MAX] = { 0 };
                 rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
                 rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
-                fileWriter.SetFormatOptions(
-                    rapidjson::kFormatSingleLineArray);  // Disable newlines between array elements
                 doc.Accept(fileWriter);
                 ftruncate(fileno(file), ftell(file));
                 fflush(file);
@@ -383,6 +383,28 @@ restart:
 
     endwin();
     return 0;
+}
+
+static std::vector<std::string> getAllEntries(const std::string& path)
+{
+    FILE*                     file = fopen(path.c_str(), "r+");
+    rapidjson::Document       doc;
+    char                      buf[UINT16_MAX] = { 0 };
+    rapidjson::FileReadStream stream(file, buf, sizeof(buf));
+
+    if (doc.ParseStream(stream).HasParseError())
+    {
+        fclose(file);
+        endwin();
+        die("Failed to parse {}: {} at offset {}", path, rapidjson::GetParseError_En(doc.GetParseError()),
+            doc.GetErrorOffset());
+    }
+
+    std::vector<std::string> entries_id;
+    for (auto it = doc["entries"].MemberBegin(); it != doc["entries"].MemberEnd(); ++it)
+        entries_id.push_back(it->name.GetString());
+
+    return entries_id;
 }
 
 // clang-format off
@@ -428,7 +450,7 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
     int opt               = 0;
     int option_index      = 0;
     opterr                = 1;  // re-enable since before we disabled for "invalid option" error
-    const char* optstring = "-Vhiscp:C:P::S::";
+    const char* optstring = "-Vhiscp:C:e::D::P::S";
 
     // clang-format off
     static const struct option opts[] = {
@@ -437,16 +459,20 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
         {"input",       no_argument,       0, 'i'},
         {"search",      no_argument,       0, 's'},
         {"copy",        no_argument,       0, 'c'},
-
+        {"silent",      no_argument,       0, 'S'},
+    
         {"primary",     optional_argument, 0, 'P'},
-        {"silent",      optional_argument, 0, 'S'},
         {"path",        required_argument, 0, 'p'},
         {"config",      required_argument, 0, 'C'},
+        {"get-entry",   optional_argument, 0, 'e'},
+        {"delete-entry",optional_argument, 0, 'D'},
         {"wl-seat",     required_argument, 0, 6968},
         {"gen-config",  optional_argument, 0, 6969},
 
         {0,0,0,0}
     };
+    bool get_all    = false;
+    bool delete_all = false;
 
     // clang-format on
     optind = 0;
@@ -466,6 +492,20 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
             case 'c':  config.arg_copy_input = true; break;
             case 6968: config.wl_seat = optarg;
             case 'C':  break;  // we have already did it in parse_config_path()
+
+            case 'e':
+                if (OPTIONAL_ARGUMENT_IS_PRESENT)
+                    config.arg_entries.push_back(optarg);
+                else
+                    get_all = true;
+                break;
+
+            case 'D': 
+                if (OPTIONAL_ARGUMENT_IS_PRESENT)
+                    config.arg_entries_delete.push_back(optarg);
+                else
+                    delete_all = true;
+                break;
 
             case 'P':
                 if (OPTIONAL_ARGUMENT_IS_PRESENT)
@@ -492,6 +532,20 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
         }
     }
 
+    if (delete_all || get_all)
+    {
+        const std::vector<std::string>& entries = getAllEntries(config.path);
+        if (config.arg_entries.empty() && get_all)
+            config.arg_entries = entries;
+        if (config.arg_entries_delete.empty() && delete_all)
+        {
+            if (askUserYorN(false, "Are You Sure You Want To DELETE ALL Entries? This action cannot be undone"))
+                config.arg_entries_delete = entries;
+            else
+                die("Exiting from operation");
+        }
+    }
+
     return true;
 }
 
@@ -513,6 +567,54 @@ int main(int argc, char* argv[])
         die("Please only use either --search or --input/--copy");
 
     CClipboardListenerUnix clipboardListenerUnix;
+
+    if (!config.arg_entries.empty() || !config.arg_entries_delete.empty())
+    {
+        FILE*                     file = fopen(config.path.c_str(), "r+");
+        rapidjson::Document       doc;
+        char                      buf[UINT16_MAX] = { 0 };
+        rapidjson::FileReadStream stream(file, buf, sizeof(buf));
+
+        if (doc.ParseStream(stream).HasParseError())
+        {
+            fclose(file);
+            die("Failed to parse {}: {} at offset {}", config.path, rapidjson::GetParseError_En(doc.GetParseError()),
+                doc.GetErrorOffset());
+        }
+
+        for (const std::string& entry : config.arg_entries)
+        {
+            if (doc["entries"].HasMember(entry.c_str()))
+            {
+                if (config.silent)
+                    fmt::println("{}", doc["entries"][entry.c_str()].GetString());
+                else
+                    fmt::println("{}: {}", entry, doc["entries"][entry.c_str()].GetString());
+            }
+            else if (!config.silent)
+                warn("Entry to get '{}' doesn't exist", entry);
+        }
+        for (const std::string& entry : config.arg_entries_delete)
+        {
+            if (doc["entries"].HasMember(entry.c_str()))
+            {
+                if (!config.silent)
+                    info("deleting entry '{}", entry);
+                doc["entries"].EraseMember(entry.c_str());
+            }
+            else if (!config.silent)
+                warn("Entry to delete '{}' doesn't exist", entry);
+        }
+        fseek(file, 0, SEEK_SET);
+
+        char                                                writeBuffer[UINT16_MAX] = { 0 };
+        rapidjson::FileWriteStream                          writeStream(file, writeBuffer, sizeof(writeBuffer));
+        rapidjson::PrettyWriter<rapidjson::FileWriteStream> fileWriter(writeStream);
+        doc.Accept(fileWriter);
+        ftruncate(fileno(file), ftell(file));
+        fflush(file);
+        return EXIT_SUCCESS;
+    }
 
     bool piped    = !isatty(STDIN_FILENO);
     bool gotstdin = false;
