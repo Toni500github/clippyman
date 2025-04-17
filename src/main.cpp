@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -103,7 +104,10 @@ void CopyCallback(const CopyEvent& event)
 
 void CopyEntry(const CopyEvent& event)
 {
-    FILE*                     file = fopen(config.path.c_str(), "r+");
+    FILE* file = fopen(config.path.c_str(), "r+");
+    if (!file)
+        die("Failed to open clipboard history at '{}': {}", config.path, strerror(errno));
+    
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -207,7 +211,10 @@ int search_algo(const CClipboardListener& clipboardListener, const Config& confi
     keypad(stdscr, TRUE);  // Enable arrow keys
 
 restart:
-    FILE*                     file = fopen(config.path.c_str(), "r+");
+    FILE* file = fopen(config.path.c_str(), "r+");
+    if (!file)
+        die("Failed to open clipboard history at '{}': {}", config.path, strerror(errno));
+
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -380,13 +387,17 @@ restart:
         curs_set(is_search_tab);
     }
 
+    fclose(file);
     endwin();
     return 0;
 }
 
 static std::vector<std::string> getAllEntries(const std::string& path)
 {
-    FILE*                     file = fopen(path.c_str(), "r+");
+    FILE* file = fopen(path.c_str(), "r+");
+    if (!file)
+        die("Failed to open clipboard history at '{}': {}", path, strerror(errno));
+
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -403,6 +414,7 @@ static std::vector<std::string> getAllEntries(const std::string& path)
     for (auto it = doc["entries"].MemberBegin(); it != doc["entries"].MemberEnd(); ++it)
         entries_id.push_back(it->name.GetString());
 
+    fclose(file);
     return entries_id;
 }
 
@@ -569,7 +581,10 @@ int main(int argc, char* argv[])
 
     if (!config.arg_entries.empty() || !config.arg_entries_delete.empty())
     {
-        FILE*                     file = fopen(config.path.c_str(), "r+");
+        FILE* file = fopen(config.path.c_str(), "r+");
+        if (!file)
+            die("Failed to open clipboard history at '{}': {}", config.path, strerror(errno));
+
         rapidjson::Document       doc;
         char                      buf[UINT16_MAX] = { 0 };
         rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -612,6 +627,7 @@ int main(int argc, char* argv[])
         doc.Accept(fileWriter);
         ftruncate(fileno(file), ftell(file));
         fflush(file);
+        fclose(file);
         return EXIT_SUCCESS;
     }
 
