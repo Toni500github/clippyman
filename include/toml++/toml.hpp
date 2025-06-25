@@ -1137,6 +1137,16 @@ TOML_ENABLE_WARNINGS;
 #define TOML_DISABLE_CONDITIONAL_NOEXCEPT_LAMBDA 0
 #endif
 
+#ifndef TOML_DISABLE_NOEXCEPT_NOEXCEPT
+#define TOML_DISABLE_NOEXCEPT_NOEXCEPT 0
+	#ifdef _MSC_VER
+		#if _MSC_VER <= 1943 // Up to Visual Studio 2022 Version 17.13.6
+		#undef TOML_DISABLE_NOEXCEPT_NOEXCEPT
+		#define TOML_DISABLE_NOEXCEPT_NOEXCEPT 1
+		#endif
+	#endif
+#endif
+
 #if !defined(TOML_FLOAT_CHARCONV) && (TOML_GCC || TOML_CLANG || (TOML_ICC && !TOML_ICC_CL))
 // not supported by any version of GCC or Clang as of 26/11/2020
 // not supported by any version of ICC on Linux as of 11/01/2021
@@ -5088,8 +5098,11 @@ TOML_NAMESPACE_START
 			(impl::value_variadic_ctor_allowed<value<ValueType>, impl::remove_cvref<Args>...>::value),
 			typename... Args)
 		TOML_NODISCARD_CTOR
-		explicit value(Args&&... args) noexcept(noexcept(value_type(
-			impl::native_value_maker<value_type, std::decay_t<Args>...>::make(static_cast<Args&&>(args)...))))
+		explicit value(Args&&... args)
+#if !TOML_DISABLE_NOEXCEPT_NOEXCEPT
+			noexcept(noexcept(value_type(
+				impl::native_value_maker<value_type, std::decay_t<Args>...>::make(static_cast<Args&&>(args)...))))
+#endif
 			: val_(impl::native_value_maker<value_type, std::decay_t<Args>...>::make(static_cast<Args&&>(args)...))
 		{
 #if TOML_LIFETIME_HOOKS
@@ -12750,7 +12763,7 @@ TOML_ANON_NAMESPACE_START
 			return value;
 		}
 	};
-	static_assert(std::is_trivial_v<utf8_codepoint>);
+	static_assert(std::is_trivially_default_constructible_v<utf8_codepoint> && std::is_trivially_copyable_v<utf8_codepoint>);
 	static_assert(std::is_standard_layout_v<utf8_codepoint>);
 
 	struct TOML_ABSTRACT_INTERFACE utf8_reader_interface
@@ -17094,7 +17107,7 @@ TOML_ANON_NAMESPACE_START
 					weight += 1u;
 					val *= -1.0;
 				}
-				return weight + static_cast<size_t>(log10(val)) + 1u;
+				return weight + static_cast<size_t>(abs(log10(val))) + 1u;
 			}
 
 			case node_type::boolean: return 5u;
