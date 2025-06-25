@@ -78,7 +78,7 @@ R"(Usage: clippyman [OPTIONS]...
     -c, --copy                  Copy the input from stdin into the clipboard (x11 only)
     -p, --path <path>           Path to where we'll search/save the clipboard history
     -P, --primary [<bool>]      Use the primary clipboard instead
-    -S, --silent               Silence some extra info text, useful for pipes or other operations
+    -S, --silent                Silence some extra info text, useful for pipes or other operations
     -e, --get-entry [<id>]      Get an entry string by given ID (0, 24, ...) Not providing an ID will print all the existent entries with their ID
     -D, --delete-entry [<id>]   DELETE an entry string by given ID (0, 24, ...) Not providing an ID will DELETE all the existent entries
     --wl-seat <name>            The seat for using in wayland (just leave it empty if you don't know what's this)
@@ -234,6 +234,8 @@ restart:
         entries_value.push_back(it->value.GetString());
     }
     std::vector<std::string> results(entries_value), results_id(entries_id);
+    if (entries_id.empty() || entries_value.empty())
+        die("Failed to parse clipboard history at '{}'", config.path);
 
     std::string query;
     int         ch            = 0;

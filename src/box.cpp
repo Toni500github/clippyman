@@ -127,7 +127,7 @@ void draw_search_box(const std::string& query, const std::vector<std::string>& r
     {
         // Calculate lines needed to show selected item
         size_t needed_lines = 3;  // header + spacing (1)
-        for (size_t i = scroll_offset; i <= selected; i++)
+        for (size_t i = scroll_offset; i <= selected && i < results.size(); i++)
         {
             const auto& wrapped = wrap_text(results[i], maxx - 11);
             needed_lines += wrapped.size() + 1;
