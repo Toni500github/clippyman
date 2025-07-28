@@ -1,10 +1,9 @@
-#if PLATFORM_X11
+#ifdef __linux__
 
 #include "clipboard/x11/ClipboardListenerX11.hpp"
 
+#include <dlfcn.h>
 #include <unistd.h>
-#include <xcb/xcb.h>
-#include <xcb/xproto.h>
 
 #include <cstdint>
 #include <cstring>
@@ -15,10 +14,46 @@
 #include "config.hpp"
 #include "util.hpp"
 
-xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
+LIB_SYMBOL(xcb_intern_atom_cookie_t, xcb_intern_atom, xcb_connection_t *c,
+           uint8_t only_if_exists, uint16_t name_len, const char *name);
+LIB_SYMBOL(xcb_intern_atom_reply_t*, xcb_intern_atom_reply,
+           xcb_connection_t *c, xcb_intern_atom_cookie_t cookie,
+           xcb_generic_error_t **e);
+LIB_SYMBOL(xcb_connection_t*, xcb_connect, const char*, int*);
+LIB_SYMBOL(int, xcb_connection_has_error, xcb_connection_t*);
+LIB_SYMBOL(xcb_setup_t*, xcb_get_setup, xcb_connection_t*);
+LIB_SYMBOL(xcb_screen_iterator_t, xcb_setup_roots_iterator, const xcb_setup_t*);
+LIB_SYMBOL(int32_t, xcb_generate_id, xcb_connection_t*);
+LIB_SYMBOL(xcb_void_cookie_t, xcb_create_window,
+           xcb_connection_t *c, uint8_t depth, xcb_window_t wid,
+           xcb_window_t parent, int16_t x, int16_t y,
+           uint16_t width, uint16_t height, uint16_t border_width,
+           uint16_t _class, xcb_visualid_t visual,
+           uint32_t value_mask, const void *value_list);
+LIB_SYMBOL(int, xcb_flush, xcb_connection_t *c);
+LIB_SYMBOL(void, xcb_disconnect, xcb_connection_t*);
+LIB_SYMBOL(xcb_void_cookie_t, xcb_convert_selection,
+           xcb_connection_t *c, xcb_window_t requestor,
+           xcb_atom_t selection, xcb_atom_t target,
+           xcb_atom_t property, xcb_timestamp_t time);
+LIB_SYMBOL(xcb_get_property_cookie_t, xcb_get_property,
+           xcb_connection_t* c, uint8_t _delete, xcb_window_t window,
+           xcb_atom_t property, xcb_atom_t type, uint32_t long_offset,
+           uint32_t long_length);
+LIB_SYMBOL(xcb_get_property_reply_t*, xcb_get_property_reply,
+           xcb_connection_t *c, xcb_get_property_cookie_t cookie,
+           xcb_generic_error_t **e);
+LIB_SYMBOL(void*, xcb_get_property_value,
+           const xcb_get_property_reply_t *reply);
+LIB_SYMBOL(xcb_generic_event_t*, xcb_wait_for_event, xcb_connection_t *c);
+LIB_SYMBOL(xcb_void_cookie_t, xcb_send_event, xcb_connection_t *c, uint8_t propagate, xcb_window_t destination, uint32_t event_mask, const char *event);
+LIB_SYMBOL(xcb_void_cookie_t, xcb_set_selection_owner, xcb_connection_t *c, xcb_window_t owner, xcb_atom_t selection, xcb_timestamp_t time);
+LIB_SYMBOL(xcb_void_cookie_t, xcb_change_property, xcb_connection_t *c, uint8_t mode, xcb_window_t window, xcb_atom_t property, xcb_atom_t type, uint8_t format, uint32_t data_len, const void *data)
+
+xcb_atom_t CClipboardListenerX11::getAtom(xcb_connection_t* connection, const std::string& name)
 {
-    xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connection, 0, name.size(), name.c_str());
-    xcb_intern_atom_reply_t* reply  = xcb_intern_atom_reply(connection, cookie, NULL);
+    xcb_intern_atom_cookie_t cookie = cf_xcb_intern_atom(connection, 0, name.size(), name.c_str());
+    xcb_intern_atom_reply_t* reply  = cf_xcb_intern_atom_reply(connection, cookie, NULL);
 
     if (!reply)
         die("Failed to get atom with name \"{}\"", name);
@@ -28,22 +63,58 @@ xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name)
 
 CClipboardListenerX11::CClipboardListenerX11()
 {
-    m_XCBConnection = xcb_connect(nullptr, nullptr);
+    static void *m_handle = LOAD_LIBRARY("libxcb.so");
+    if (!m_handle)
+        die("Failed to load libxcb.so!");
 
-    if (xcb_connection_has_error(m_XCBConnection) != 0)
+    LOAD_LIB_SYMBOL(m_handle, xcb_intern_atom_cookie_t, xcb_intern_atom,
+                    xcb_connection_t*, uint8_t, uint16_t, const char*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_intern_atom_reply_t*, xcb_intern_atom_reply,
+                    xcb_connection_t*, xcb_intern_atom_cookie_t, xcb_generic_error_t**);
+    LOAD_LIB_SYMBOL(m_handle, xcb_connection_t*, xcb_connect,
+                    const char*, int*);
+    LOAD_LIB_SYMBOL(m_handle, int, xcb_connection_has_error, xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_setup_t*, xcb_get_setup, xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_screen_iterator_t, xcb_setup_roots_iterator,
+                    const xcb_setup_t*);
+    LOAD_LIB_SYMBOL(m_handle, int32_t, xcb_generate_id, xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_void_cookie_t, xcb_create_window,
+                    xcb_connection_t*, uint8_t, xcb_window_t, xcb_window_t,
+                    int16_t, int16_t, uint16_t, uint16_t, uint16_t,
+                    uint16_t, xcb_visualid_t, uint32_t, const void*);
+    LOAD_LIB_SYMBOL(m_handle, int, xcb_flush, xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, void, xcb_disconnect, xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_void_cookie_t, xcb_convert_selection,
+                    xcb_connection_t*, xcb_window_t, xcb_atom_t, xcb_atom_t,
+                    xcb_atom_t, xcb_timestamp_t);
+    LOAD_LIB_SYMBOL(m_handle, xcb_get_property_cookie_t, xcb_get_property,
+           xcb_connection_t *c, uint8_t _delete, xcb_window_t window,
+           xcb_atom_t property, xcb_atom_t type, uint32_t long_offset, uint32_t long_length);
+    LOAD_LIB_SYMBOL(m_handle, xcb_get_property_reply_t*, xcb_get_property_reply,
+                    xcb_connection_t*, xcb_get_property_cookie_t, xcb_generic_error_t**);
+    LOAD_LIB_SYMBOL(m_handle, void*, xcb_get_property_value,
+                    const xcb_get_property_reply_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_generic_event_t*, xcb_wait_for_event,
+                    xcb_connection_t*);
+    LOAD_LIB_SYMBOL(m_handle, xcb_void_cookie_t, xcb_send_event, xcb_connection_t *c, uint8_t propagate, xcb_window_t destination, uint32_t event_mask, const char *event);
+    LOAD_LIB_SYMBOL(m_handle, xcb_void_cookie_t, xcb_change_property, xcb_connection_t *c, uint8_t mode, xcb_window_t window, xcb_atom_t property, xcb_atom_t type, uint8_t format, uint32_t data_len, const void *data);
+    LOAD_LIB_SYMBOL(m_handle, xcb_void_cookie_t, xcb_set_selection_owner, xcb_connection_t *c, xcb_window_t owner, xcb_atom_t selection, xcb_timestamp_t time);
+
+    m_XCBConnection = cf_xcb_connect(nullptr, nullptr);
+    if (cf_xcb_connection_has_error(m_XCBConnection) != 0)
         die("Failed to connect to X11 display!");
 
-    const xcb_setup_t*          setup  = xcb_get_setup(m_XCBConnection);
-    const xcb_screen_iterator_t iter   = xcb_setup_roots_iterator(setup);
+    const xcb_setup_t*          setup  = cf_xcb_get_setup(m_XCBConnection);
+    const xcb_screen_iterator_t iter   = cf_xcb_setup_roots_iterator(setup);
     const xcb_screen_t*         screen = iter.data;
 
     if (!screen)
         die("Failed to get X11 root window!");
 
-    m_Window = xcb_generate_id(m_XCBConnection);
-    xcb_create_window(m_XCBConnection, XCB_COPY_FROM_PARENT, m_Window, screen->root, 0, 0, 1, 1, 0,
+    m_Window = cf_xcb_generate_id(m_XCBConnection);
+    cf_xcb_create_window(m_XCBConnection, XCB_COPY_FROM_PARENT, m_Window, screen->root, 0, 0, 1, 1, 0,
                       XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, 0, NULL);
-    xcb_flush(m_XCBConnection);
+    cf_xcb_flush(m_XCBConnection);
 
     m_Clipboard         = getAtom(m_XCBConnection, config.primary_clip ? "PRIMARY" : "CLIPBOARD");
     m_UTF8String        = getAtom(m_XCBConnection, "UTF8_STRING");
@@ -53,7 +124,7 @@ CClipboardListenerX11::CClipboardListenerX11()
 CClipboardListenerX11::~CClipboardListenerX11()
 {
     if (m_XCBConnection)
-        xcb_disconnect(m_XCBConnection);
+        cf_xcb_disconnect(m_XCBConnection);
 }
 
 /*
@@ -67,22 +138,22 @@ void CClipboardListenerX11::AddCopyCallback(const std::function<void(const CopyE
 void CClipboardListenerX11::PollClipboard()
 {
     /* Request the clipboard contents */
-    xcb_convert_selection(m_XCBConnection, m_Window, m_Clipboard, m_UTF8String, m_ClipboardProperty, XCB_CURRENT_TIME);
-    xcb_flush(m_XCBConnection);
+    cf_xcb_convert_selection(m_XCBConnection, m_Window, m_Clipboard, m_UTF8String, m_ClipboardProperty, XCB_CURRENT_TIME);
+    cf_xcb_flush(m_XCBConnection);
 
     xcb_generic_event_t* event;
-    if ((event = xcb_wait_for_event(m_XCBConnection)))
+    if ((event = cf_xcb_wait_for_event(m_XCBConnection)))
     {
-        xcb_get_property_cookie_t propertyCookie = xcb_get_property(m_XCBConnection, 0, m_Window, m_ClipboardProperty,
+        xcb_get_property_cookie_t propertyCookie = cf_xcb_get_property(m_XCBConnection, 0, m_Window, m_ClipboardProperty,
                                                                     XCB_GET_PROPERTY_TYPE_ANY, 0, UINT16_MAX);
 
         xcb_generic_error_t*      error         = nullptr;
-        xcb_get_property_reply_t* propertyReply = xcb_get_property_reply(m_XCBConnection, propertyCookie, &error);
+        xcb_get_property_reply_t* propertyReply = cf_xcb_get_property_reply(m_XCBConnection, propertyCookie, &error);
 
         if (error)
             die("Unknown libxcb error: {}", error->error_code);
 
-        CopyEvent copyEvent{ reinterpret_cast<char*>(xcb_get_property_value(propertyReply)) };
+        CopyEvent copyEvent{ reinterpret_cast<char*>(cf_xcb_get_property_value(propertyReply)) };
 
         /* Simple but fine approach */
         if (copyEvent.content == m_LastClipboardContent)
@@ -121,7 +192,7 @@ static void runInBg(xcb_connection_t* m_XCBConnection, xcb_atom_t selection, xcb
     // handle selection requests in event loop
     while (true)
     {
-        xcb_generic_event_t* event = xcb_wait_for_event(m_XCBConnection);
+        xcb_generic_event_t* event = cf_xcb_wait_for_event(m_XCBConnection);
         if (!event)
         {
             free(event);
@@ -151,7 +222,7 @@ static void runInBg(xcb_connection_t* m_XCBConnection, xcb_atom_t selection, xcb
             {
                 xcb_selection_notify_event_t notify_event = {};
                 // setting the property
-                xcb_change_property(m_XCBConnection, XCB_PROP_MODE_REPLACE, request->requestor, property, target, 8,
+                cf_xcb_change_property(m_XCBConnection, XCB_PROP_MODE_REPLACE, request->requestor, property, target, 8,
                                     str.size(), str.c_str());
                 notify_event.response_type = XCB_SELECTION_NOTIFY;
                 notify_event.requestor     = request->requestor;
@@ -160,9 +231,9 @@ static void runInBg(xcb_connection_t* m_XCBConnection, xcb_atom_t selection, xcb
                 notify_event.property      = property;
                 notify_event.time          = request->time;
 
-                xcb_send_event(m_XCBConnection, false, request->requestor, XCB_EVENT_MASK_NO_EVENT,
+                cf_xcb_send_event(m_XCBConnection, false, request->requestor, XCB_EVENT_MASK_NO_EVENT,
                                reinterpret_cast<const char*>(&notify_event));
-                xcb_flush(m_XCBConnection);
+                cf_xcb_flush(m_XCBConnection);
             }
         }
         free(event);
@@ -171,13 +242,13 @@ static void runInBg(xcb_connection_t* m_XCBConnection, xcb_atom_t selection, xcb
 
 void CClipboardListenerX11::CopyToClipboard(const std::string& str) const
 {
-    xcb_intern_atom_cookie_t cookie_selection = xcb_intern_atom(m_XCBConnection, 1, 9, "CLIPBOARD");
-    xcb_intern_atom_cookie_t cookie_target    = xcb_intern_atom(m_XCBConnection, 1, 11, "UTF8_STRING");
-    xcb_intern_atom_cookie_t cookie_property  = xcb_intern_atom(m_XCBConnection, 1, 9, "XSEL_DATA");
+    xcb_intern_atom_cookie_t cookie_selection = cf_xcb_intern_atom(m_XCBConnection, 1, 9, "CLIPBOARD");
+    xcb_intern_atom_cookie_t cookie_target    = cf_xcb_intern_atom(m_XCBConnection, 1, 11, "UTF8_STRING");
+    xcb_intern_atom_cookie_t cookie_property  = cf_xcb_intern_atom(m_XCBConnection, 1, 9, "XSEL_DATA");
 
-    xcb_intern_atom_reply_t* reply_selection = xcb_intern_atom_reply(m_XCBConnection, cookie_selection, NULL);
-    xcb_intern_atom_reply_t* reply_target    = xcb_intern_atom_reply(m_XCBConnection, cookie_target, NULL);
-    xcb_intern_atom_reply_t* reply_property  = xcb_intern_atom_reply(m_XCBConnection, cookie_property, NULL);
+    xcb_intern_atom_reply_t* reply_selection = cf_xcb_intern_atom_reply(m_XCBConnection, cookie_selection, NULL);
+    xcb_intern_atom_reply_t* reply_target    = cf_xcb_intern_atom_reply(m_XCBConnection, cookie_target, NULL);
+    xcb_intern_atom_reply_t* reply_property  = cf_xcb_intern_atom_reply(m_XCBConnection, cookie_property, NULL);
 
     if (!reply_selection || !reply_target || !reply_property)
     {
@@ -196,8 +267,8 @@ void CClipboardListenerX11::CopyToClipboard(const std::string& str) const
     free(reply_property);
 
     // set our window as the selection owner
-    xcb_set_selection_owner(m_XCBConnection, m_Window, selection, XCB_CURRENT_TIME);
-    xcb_flush(m_XCBConnection);
+    cf_xcb_set_selection_owner(m_XCBConnection, m_Window, selection, XCB_CURRENT_TIME);
+    cf_xcb_flush(m_XCBConnection);
     if (!config.silent)
         info("Copied to clipboard! (maybe)");
 
@@ -211,4 +282,4 @@ void CClipboardListenerX11::CopyToClipboard(const std::string& str) const
         exit(0);
 }
 
-#endif  // PLATFORM_X11
+#endif  // __linux__

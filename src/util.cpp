@@ -1,6 +1,8 @@
 #include "util.hpp"
+#include <dlfcn.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <vector>

@@ -78,7 +78,7 @@ jobs:
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update && sudo apt upgrade -y
-        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config libxcb1-dev libxcb-xfixes0-dev -y
+        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config libxcb1-dev -y
 
     - name: Clean
       run: make clean

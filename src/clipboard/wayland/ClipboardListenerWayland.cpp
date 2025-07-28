@@ -1,13 +1,13 @@
-#if PLATFORM_WAYLAND
+#ifdef __linux__
 
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
 
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -15,11 +15,24 @@
 
 #include "util.hpp"
 
+static void *m_handle;
 const char* const tempname = "/clippyman-buffer-XXXXXX";
 
-CClipboardListenerWayland::CClipboardListenerWayland(const wc_options& options) : m_options(options)
+LIB_SYMBOL(wl_display*, wl_display_connect, const char *name);
+LIB_SYMBOL(void, wl_display_disconnect, wl_display *display);
+LIB_SYMBOL(int, wl_display_roundtrip, wl_display *display);
+
+CClipboardListenerWayland::CClipboardListenerWayland()
 {
-    m_display = wl_display_connect(NULL);
+    m_handle = LOAD_LIBRARY("libwayland-client.so");
+    if (!m_handle)
+        die("Failed to load Wayland libraries");
+
+    LOAD_LIB_SYMBOL(m_handle, wl_display*, wl_display_connect, const char *name);
+    LOAD_LIB_SYMBOL(m_handle, void, wl_display_disconnect, wl_display *display);
+    LOAD_LIB_SYMBOL(m_handle, int, wl_display_roundtrip, wl_display *display);
+
+    m_display = cf_wl_display_connect(NULL);
     if (!m_display)
         die("Failed to connect to wayland display!");
 
@@ -40,14 +53,14 @@ CClipboardListenerWayland::CClipboardListenerWayland(const wc_options& options) 
     if (!config.arg_search)
     {
         close(STDIN_FILENO);
-        main_waycopy(m_display, m_options, STDIN_FILENO);
+        main_waycopy(m_display, wl_options, STDIN_FILENO);
         main_waypaste(m_display, m_fd);
     }
 }
 
 CClipboardListenerWayland::~CClipboardListenerWayland()
 {
-    wl_display_disconnect(m_display);
+    cf_wl_display_disconnect(m_display);
     if (unlink(m_path.c_str()) == -1)
         warn("Failed to remove temporary file '{}", m_path);
 }
@@ -59,7 +72,7 @@ void CClipboardListenerWayland::AddCopyCallback(const std::function<void(const C
 
 void CClipboardListenerWayland::PollClipboard()
 {
-    wl_display_roundtrip(m_display);
+    cf_wl_display_roundtrip(m_display);
 
     // for checking duplicated every 50ms
     // instead of:
@@ -139,4 +152,4 @@ end:
     info("Copied into clipboard!");
 }*/
 
-#endif  // PLATFORM_WAYLAND
+#endif

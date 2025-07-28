@@ -1,7 +1,7 @@
 #ifndef _CLIPBOARD_LISTENER_X11_HPP_
 #define _CLIPBOARD_LISTENER_X11_HPP_
 
-#if PLATFORM_X11
+#ifdef __linux__
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -21,6 +21,8 @@ public:
     void CopyToClipboard(const std::string& str) const override;
 
 private:
+    xcb_atom_t getAtom(xcb_connection_t* connection, const std::string& name);
+
     std::vector<std::function<void(const CopyEvent&)>> m_CopyEventCallbacks;
 
     xcb_connection_t* m_XCBConnection = nullptr;
@@ -32,6 +34,6 @@ private:
     xcb_atom_t m_Clipboard, m_UTF8String, m_ClipboardProperty;
 };
 
-#endif  // PLATFORM_X11
+#endif // __linux__
 
 #endif  // !CLIPBOARD_LISTENER_X11_HPP_

@@ -1,10 +1,38 @@
 #ifndef _UTIL_HPP_
 #define _UTIL_HPP_
 
+#include <dlfcn.h>
+#include <cstdlib>
 #include <iostream>
 
 #include "fmt/base.h"
 #include "fmt/color.h"
+
+inline bool is_wayland = false;
+inline bool is_xorg = false;
+
+#ifndef _WIN32
+/* lib = library to load (string) */
+#define LOAD_LIBRARY(lib) dlopen(lib, RTLD_NOW | RTLD_LOCAL)
+
+/* handler  = the library handle
+ * ret_type = type of what the function returns
+ * func     = the function name
+ * ...      = the arguments in a function if any
+ */
+#define LOAD_LIB_SYMBOL(handler, ret_type, func, ...) \
+    cf_##func = reinterpret_cast<ret_type (*)(__VA_ARGS__)>(dlsym(handler, #func)); \
+    if (!func) die("Failed to load symbol: {}", #func);
+
+#define LIB_SYMBOL(ret_type, func, ...) \
+    inline ret_type (*cf_##func)(__VA_ARGS__) = nullptr;
+
+#define UNLOAD_LIBRARY(handle) dlclose(handle)
+#else
+#define LOAD_LIBRARY(...)
+#define LOAD_LIB_SYMBOL(...)
+#define UNLOAD_LIBRARY(...)
+#endif
 
 /* https://stackoverflow.com/questions/874134/find-out-if-string-ends-with-another-string-in-c#874160
  * Check if substring exists at the start

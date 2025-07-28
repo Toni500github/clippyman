@@ -1,6 +1,10 @@
 #ifndef _WAYCLIP_SRC_COMMON_H_
 #define _WAYCLIP_SRC_COMMON_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <wayland-client.h>
 
@@ -23,5 +27,9 @@ void copyfd(int in, int out);
 
 int main_waycopy(struct wl_display *display, struct wc_options options, const int fd);
 void main_waypaste(struct wl_display *display, const int fd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !_WAYCLIP_SRC_COMMON_H_

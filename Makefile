@@ -6,7 +6,6 @@ APPPREFIX 	?= $(PREFIX)/share/applications
 VARS  	  	?=
 
 DEBUG 		?= 1
-PLATFORM	?= unix
 CXXSTD		?= c++17
 
 # https://stackoverflow.com/a/1079861
@@ -24,10 +23,6 @@ else
         BUILDDIR  = build/release
 endif
 
-ifeq ($(filter xorg x11 wayland unix,$(PLATFORM)),)
-    $(error Invalid platform "$(PLATFORM)". Choose either: x11 (xorg), wayland, unix)
-endif
-
 NAME		= clippyman
 TARGET		= $(NAME)
 OLDVERSION	= 0.0.0
@@ -39,24 +34,15 @@ LDFLAGS   	+= -L./$(BUILDDIR)/fmt -lfmt -lncurses
 CXXFLAGS  	?= -mtune=generic -march=native
 CXXFLAGS        += -Wno-unused-parameter -fvisibility=hidden -Iinclude -std=$(CXXSTD) $(VARS) -DVERSION=\"$(VERSION)\" -DBRANCH=\"$(BRANCH)\"
 
-ifeq ($(shell uname -s),Darwin)
+UNAME_S 	:= $(shell uname -s)
+IS_ANDROID 	:= $(shell uname -o 2>/dev/null | grep -i android || echo no)
+
+ifeq ($(UNAME_S),Darwin)
 	CXXFLAGS += -stdlib=libc++
 endif
 
-ifeq ($(PLATFORM),$(or x11,xorg))
-	LDFLAGS  += -lxcb -lxcb-xfixes
-	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_X11=1 -DPLATFORM_UNIX=0
-	TARGET   := $(TARGET)-x11
-endif
-
-ifeq ($(PLATFORM),wayland)
-	LDFLAGS  += -L./$(BUILDDIR)/wayclip -lwayclip -lwayland-client
-	CXXFLAGS += -DPLATFORM_WAYLAND=1 -DPLATFORM_X11=0 -DPLATFORM_UNIX=0
-	TARGET   := $(TARGET)-$(PLATFORM)
-endif
-
-ifeq ($(PLATFORM),unix)
-	CXXFLAGS += -DPLATFORM_WAYLAND=0 -DPLATFORM_X11=0 -DPLATFORM_UNIX=1
+ifeq ($(UNAME_S)_$(IS_ANDROID),Linux_no)
+	LDFLAGS += ./$(BUILDDIR)/wayclip/libwayclip.a -lwayland-client
 endif
 
 all: fmt toml wayclip $(TARGET)
@@ -74,7 +60,7 @@ ifeq ($(wildcard $(BUILDDIR)/toml++/toml.o),)
 endif
 
 wayclip:
-ifeq ($(PLATFORM),wayland)
+ifeq ($(UNAME_S)_$(IS_ANDROID),Linux_no)
 ifeq ($(wildcard $(BUILDDIR)/wayclip/libwayclip.a),)
 	mkdir -p $(BUILDDIR)/wayclip
 	make -C src/clipboard/wayland/wayclip BUILDDIR=$(BUILDDIR)/wayclip CC=$(CC) DEBUG=$(DEBUG)

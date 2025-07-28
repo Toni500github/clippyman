@@ -23,15 +23,25 @@ file(GLOB
 	"src/clipboard/wayland/*.cpp"
 	"src/clipboard/x11/*.cpp")
 
-if(PLATFORM_WAYLAND)
-set(TARGET_NAME clippyman-wayland)
-elseif(PLATFORM_X11)
-set(TARGET_NAME clippyman-x11)
-else()
 set(TARGET_NAME clippyman)
-endif()
-
 add_executable(${TARGET_NAME} ${SRC})
+
+# Detect Android
+set(IS_ANDROID FALSE)
+if(ANDROID)
+    set(IS_ANDROID TRUE)
+else()
+    execute_process(
+        COMMAND uname -o
+        OUTPUT_VARIABLE UNAME_O
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    string(TOLOWER "${UNAME_O}" UNAME_O_LOWER)
+    if(UNAME_O_LOWER MATCHES "android")
+        set(IS_ANDROID TRUE)
+    endif()
+endif()
 
 # get git branch
 execute_process(
@@ -61,27 +71,11 @@ endmacro()
 
 message(STATUS "Set flags:")
 message(STATUS "=================")
-add_option(PLATFORM_WAYLAND "Build clippyman for Wayland" 0)
-add_option(PLATFORM_X11 "Build clippyman for X11" 0)
 add_option(VARS "Add additional flags to CXXFLAGS" "")
 message(STATUS "=================")
 
-if(PLATFORM_WAYLAND AND PLATFORM_X11)
-	message(FATAL_ERROR "You need to choose either -DPLATFORM_X11 or -DPLATFORM_WAYLAND")
-endif()
-
-if(PLATFORM_WAYLAND)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT IS_ANDROID)
 	target_link_libraries(${TARGET_NAME} PUBLIC -lwayland-client)
-	add_definitions(-DPLATFORM_UNIX=0)
-	add_definitions(-DPLATFORM_X11=0)
-elseif(PLATFORM_X11)
-        target_link_libraries(${TARGET_NAME} PUBLIC -lxcb -lxcb-xfixes)
-	add_definitions(-DPLATFORM_UNIX=0)
-	add_definitions(-DPLATFORM_WAYLAND=0)
-else()
-	add_definitions(-DPLATFORM_UNIX=1)
-	add_definitions(-DPLATFORM_X11=0)
-	add_definitions(-DPLATFORM_WAYLAND=0)
 endif()
 
 # ncurses
@@ -95,7 +89,7 @@ add_library(fmt STATIC
 target_link_libraries(${TARGET_NAME} PUBLIC fmt)
 
 # wayclip custom fork
-if(PLATFORM_WAYLAND)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT IS_ANDROID)
 if(EXISTS ${CMAKE_SOURCE_DIR}/src/clipboard/wayland/wayclip/protocol/wlr-data-control-unstable-v1.c)
 message(STATUS "protocol client code already exists")
 else()

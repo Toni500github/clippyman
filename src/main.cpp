@@ -1,14 +1,10 @@
 #define _POSIX_C_SOURCE 2  // getopt
-#ifndef PLATFORM_UNIX
-#define PLATFORM_UNIX 0
-#endif
-
 #include <getopt.h>
 #include <ncurses.h>
 #include <unistd.h>
 
+#include <memory>
 #include <algorithm>
-#include <cctype>
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -18,10 +14,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#if !PLATFORM_UNIX
 #include <chrono>
 #include <thread>
-#endif
 
 #include "EventData.hpp"
 #include "clipboard/ClipboardListener.hpp"
@@ -36,14 +30,10 @@
 #include "rapidjson/filewritestream.h"
 #include "rapidjson/prettywriter.h"
 #include "util.hpp"
-#if PLATFORM_X11
-#include <xcb/xproto.h>
+
+#if __linux__
 #include "clipboard/x11/ClipboardListenerX11.hpp"
-#elif PLATFORM_WAYLAND
 #include "clipboard/wayland/ClipboardListenerWayland.hpp"
-extern "C" {
-#include "clipboard/wayland/wayclip/common.h"
-}
 #endif
 
 // clang-format off
@@ -562,8 +552,22 @@ bool parseargs(int argc, char* argv[], Config& config, const std::string& config
     return true;
 }
 
+std::unique_ptr<CClipboardListener> GetAppropriateClipboardListener()
+{
+#ifdef __linux__
+    if (is_xorg)
+        return std::make_unique<CClipboardListenerX11>();
+    if (is_wayland)
+        return std::make_unique<CClipboardListenerWayland>();
+#endif
+        return std::make_unique<CClipboardListenerUnix>();
+}
+
 int main(int argc, char* argv[])
 {
+    is_wayland = (std::getenv("WAYLAND_DISPLAY") != nullptr);
+    is_xorg    = (!is_wayland && std::getenv("DISPLAY") != nullptr);
+
     const std::string& configDir  = getConfigDir();
     const std::string& configFile = parse_config_path(argc, argv, configDir);
 
@@ -578,8 +582,6 @@ int main(int argc, char* argv[])
     if ((config.arg_search && config.arg_terminal_input) ||
         (config.arg_search && config.arg_copy_input))
         die("Please only use either --search or --input/--copy");
-
-    CClipboardListenerUnix clipboardListenerUnix;
 
     if (!config.arg_entries.empty() || !config.arg_entries_delete.empty())
     {
@@ -633,17 +635,16 @@ int main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
+    CClipboardListenerUnix clipboardListenerUnix;
     bool piped    = !isatty(STDIN_FILENO);
     bool gotstdin = false;
-    if (!config.arg_search && (piped || PLATFORM_UNIX || config.arg_terminal_input))
+    if (!config.arg_search && (piped || config.arg_terminal_input))
     {
-#if !PLATFORM_X11
-        if (config.arg_copy_input)
+        if (config.arg_copy_input && !is_xorg)
         {
             warn("NOT yet implemented copy to clipboard in here, only X11.");
             return EXIT_FAILURE;
         }
-#endif
         clipboardListenerUnix.AddCopyCallback(CopyEntry);
 
         if (!piped)
@@ -651,45 +652,59 @@ int main(int argc, char* argv[])
 
         clipboardListenerUnix.PollClipboard();
         gotstdin = true;
-#if !PLATFORM_X11
-        return EXIT_SUCCESS;
-#endif
+
+        if (config.arg_copy_input)
+        {
+            if (!is_xorg)
+            {
+                warn("NOT yet implemented copy to clipboard in here, only X11.");
+                return EXIT_FAILURE;
+            }
+
+            std::unique_ptr<CClipboardListener> clipboardListener = GetAppropriateClipboardListener();
+            clipboardListener->CopyToClipboard(clipboardListenerUnix.getLastClipboardContent());
+            return EXIT_SUCCESS;
+        }
     }
 
-#if !PLATFORM_UNIX
-#if PLATFORM_X11
-    CClipboardListenerX11 clipboardListener;
-    clipboardListener.AddCopyCallback(CopyCallback);
-    clipboardListener.AddCopyCallback(CopyEntry);
-#elif PLATFORM_WAYLAND
-    struct wc_options wl_options = {
-        "text/plain;charset=utf-8",
-        config.wl_seat.empty() ? NULL : config.wl_seat.c_str(),
-        false,
-        config.primary_clip
-    };
-    CClipboardListenerWayland clipboardListener(wl_options);
-    clipboardListener.AddCopyCallback(CopyCallback);
-    clipboardListener.AddCopyCallback(CopyEntry);
+    if (!(is_xorg && is_wayland) && config.arg_search)
+        return search_algo(clipboardListenerUnix, config);
+
+#ifdef __linux__
+    if (is_wayland)
+    {
+        wl_options = {
+            "text/plain;charset=utf-8",
+            config.wl_seat.empty() ? NULL : config.wl_seat.c_str(),
+            false,
+            config.primary_clip
+        };
+    }
 #endif
 
+    std::unique_ptr<CClipboardListener> clipboardListener = GetAppropriateClipboardListener();
+    clipboardListener->AddCopyCallback(CopyCallback);
+    clipboardListener->AddCopyCallback(CopyEntry);
+
     if (config.arg_search)
-        return search_algo(clipboardListener, config);
+        return search_algo(*clipboardListener, config);
 
     if (config.arg_copy_input)
     {
-#if !PLATFORM_X11
-        warn("NOT yet implemented copy to clipboard in here, only X11.");
-        return EXIT_FAILURE;
-#endif
+        if (!is_xorg)
+        {
+            warn("NOT yet implemented copy to clipboard in here, only X11.");
+            return EXIT_FAILURE;
+        }
+
         if (!gotstdin)
         {
             info("Type or Paste the text to copy into the clipboard, then press enter and CTRL+D to save and exit");
-            clipboardListener.CopyToClipboard(getin());
+            clipboardListener->CopyToClipboard(getin());
         }
         else
         {
-            clipboardListener.CopyToClipboard(clipboardListenerUnix.getLastClipboardContent());
+            clipboardListener->CopyToClipboard(clipboardListenerUnix.getLastClipboardContent());
         }
         return EXIT_SUCCESS;
     }
@@ -697,13 +712,9 @@ int main(int argc, char* argv[])
     while (true)
     {
         // debug("POLLING");
-        clipboardListener.PollClipboard();
+        clipboardListener->PollClipboard();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-#else
-    if (config.arg_search)
-        return search_algo(clipboardListenerUnix, config);
-#endif
 
     return EXIT_SUCCESS;
 }

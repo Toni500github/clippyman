@@ -30,9 +30,8 @@ public:
     {
         if (!config.silent)
         {
-#if !PLATFORM_X11
-            warn("NOT yet implemented copy to clipboard in here, only X11.");
-#endif
+            if (!is_xorg)
+                warn("NOT yet implemented copy to clipboard in here, only X11.");
             info("Printing the selected content:");
         }
         fmt::print("{}", str);

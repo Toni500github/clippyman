@@ -7,6 +7,8 @@
 #include <string.h>
 #include <wayland-client.h>
 #include <unistd.h>
+#include <linux/limits.h>
+#include <wayland-client-protocol.h>
 
 #include "protocol/wlr-data-control-unstable-v1-client-protocol.h"
 #include "common.h"
