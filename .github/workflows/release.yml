@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
   push:
     tags: "*"
-    paths:
-      # trigger release workflow only if this file changed
-      - .github/workflows/release.yml
 
 jobs:
   get-version:
@@ -21,22 +18,21 @@ jobs:
           echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Install Packages
       run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update && sudo apt upgrade -y
-        sudo apt-get install build-essential libwayland-dev libxcb1-dev g++-10 gettext pkg-config -y
+        sudo apt-get install build-essential libwayland-dev libxcb1-dev gettext pkg-config -y
 
     - name: Clean
       run: make distclean
 
     - name: Compile
-      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 && mv ./build/release/clippyman ./
+      run: make DEBUG=0 && mv ./build/release/clippyman ./
 
     - name: Upload to github artifacts
       uses: actions/upload-artifact@v4
