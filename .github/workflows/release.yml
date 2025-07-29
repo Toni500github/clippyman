@@ -3,6 +3,7 @@ name: Release
 on:
   workflow_dispatch:
   push:
+    tags: "*"
     branches: [ "main" ]
     paths:
       # trigger release workflow only if this file changed
