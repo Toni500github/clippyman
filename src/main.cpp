@@ -97,7 +97,7 @@ void CopyEntry(const CopyEvent& event)
     FILE* file = fopen(config.path.c_str(), "r+");
     if (!file)
         die("Failed to open clipboard history at '{}': {}", config.path, strerror(errno));
-    
+
     rapidjson::Document       doc;
     char                      buf[UINT16_MAX] = { 0 };
     rapidjson::FileReadStream stream(file, buf, sizeof(buf));
@@ -560,7 +560,7 @@ std::unique_ptr<CClipboardListener> GetAppropriateClipboardListener()
     if (is_wayland)
         return std::make_unique<CClipboardListenerWayland>();
 #endif
-        return std::make_unique<CClipboardListenerUnix>();
+    return std::make_unique<CClipboardListenerUnix>();
 }
 
 int main(int argc, char* argv[])
@@ -638,7 +638,7 @@ int main(int argc, char* argv[])
     CClipboardListenerUnix clipboardListenerUnix;
     bool piped    = !isatty(STDIN_FILENO);
     bool gotstdin = false;
-    if (!config.arg_search && (piped || config.arg_terminal_input))
+    if (!config.arg_search && (piped || config.arg_terminal_input || !(is_xorg || is_wayland)))
     {
         if (config.arg_copy_input && !is_xorg)
         {
@@ -655,20 +655,16 @@ int main(int argc, char* argv[])
 
         if (config.arg_copy_input)
         {
-            if (!is_xorg)
-            {
-                warn("NOT yet implemented copy to clipboard in here, only X11.");
-                return EXIT_FAILURE;
-            }
-
             std::unique_ptr<CClipboardListener> clipboardListener = GetAppropriateClipboardListener();
             clipboardListener->CopyToClipboard(clipboardListenerUnix.getLastClipboardContent());
-            return EXIT_SUCCESS;
         }
+        return EXIT_SUCCESS;
     }
 
-    if (!(is_xorg && is_wayland) && config.arg_search)
+    if (!(is_xorg || is_wayland) && config.arg_search)
         return search_algo(clipboardListenerUnix, config);
+    else if (!(is_xorg || is_wayland))
+        return EXIT_SUCCESS;
 
 #ifdef __linux__
     if (is_wayland)
