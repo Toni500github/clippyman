@@ -234,6 +234,7 @@ static void runInBg(xcb_connection_t* m_XCBConnection, xcb_atom_t selection, xcb
                 cf_xcb_send_event(m_XCBConnection, false, request->requestor, XCB_EVENT_MASK_NO_EVENT,
                                reinterpret_cast<const char*>(&notify_event));
                 cf_xcb_flush(m_XCBConnection);
+                break;
             }
         }
         free(event);
