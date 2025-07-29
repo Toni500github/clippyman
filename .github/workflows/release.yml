@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     tags: "*"
-    branches: [ "main" ]
     paths:
       # trigger release workflow only if this file changed
       - .github/workflows/release.yml
@@ -21,7 +20,7 @@ jobs:
           echo "Tag name from github.ref_name: ${{ github.ref_name }}"
           echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
-  build-unix:
+  build:
     runs-on: ubuntu-20.04
 
     steps:
@@ -31,72 +30,23 @@ jobs:
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update && sudo apt upgrade -y
-        sudo apt-get install build-essential g++-10 gettext pkg-config -y
+        sudo apt-get install build-essential libwayland-dev libxcb1-dev g++-10 gettext pkg-config -y
 
     - name: Clean
-      run: make clean
+      run: make distclean
 
     - name: Compile
-      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=unix && mv ./build/release/clippyman ./
+      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 && mv ./build/release/clippyman ./
 
     - name: Upload to github artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: clippyman-unix
+        name: clippyman
         path: ./clippyman
-
-  build-wayland:
-    runs-on: ubuntu-20.04
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install Packages
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-        sudo apt-get update && sudo apt upgrade -y
-        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config -y
-
-    - name: Clean
-      run: make clean
-
-    - name: Compile
-      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=wayland && mv ./build/release/clippyman-wayland ./
-
-    - name: Upload to github artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: clippyman-wayland
-        path: ./clippyman-wayland
-
-  build-x11:
-    runs-on: ubuntu-20.04
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install Packages
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-        sudo apt-get update && sudo apt upgrade -y
-        sudo apt-get install build-essential g++-10 libwayland-dev gettext pkg-config libxcb1-dev -y
-
-    - name: Clean
-      run: make clean
-
-    - name: Compile
-      run: make DEBUG=0 CXX=x86_64-linux-gnu-g++-10 PLATFORM=x11 && mv ./build/release/clippyman-x11 ./
-
-    - name: Upload to github artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: clippyman-x11
-        path: ./clippyman-x11
-
         
   release:
     name: Create GitHub Release
-    needs: [build-unix, get-version]
+    needs: [build, get-version]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -131,24 +81,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.release-url }}
-          asset_path: clippyman-unix/clippyman
-          asset_name: clippyman
-          asset_content_type: application/x-pie-executable
-
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.release-url }}
-          asset_path: clippyman-wayland/clippyman-wayland
-          asset_name: clippyman-wayland
-          asset_content_type: application/x-pie-executable
-
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.release-url }}
-          asset_path: clippyman-x11/clippyman-x11
-          asset_name: clippyman-x11
+          asset_path: clippyman/clippyman
+          asset_name: clippyman-linux
           asset_content_type: application/x-pie-executable
